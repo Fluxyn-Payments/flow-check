@@ -86,7 +86,7 @@ Everything in this repository was written on October 24–25, 2026 — see the c
 - Federico Bais — Fluxyn (NYC)
 - Lengo — (NYC)
 - Lorena — legal & compliance, EquipoLega (NYC)
-- Jhony + builders — remote
+- Remote builders
 
 ## License
 
