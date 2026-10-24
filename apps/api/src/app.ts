@@ -1,11 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { Wallet, type Payment } from 'xrpl';
-import { FlowCheck, type SignedMandate } from '@fluxyn/flow-check';
+import { FlowCheck, type MandateSet, type SignedMandate } from '@fluxyn/flow-check';
 import { MONITOR_HTML } from './monitor.js';
 import { directory, PRIOR_ISSUERS, type Issuer } from './directory.js';
-import { bills, runAgent } from './agent.js';
+import { agentOf, bills, runAgent, type AgentKey } from './agent.js';
 import { ap4mState, overCapAttempt } from './ap4m.js';
+import { allowAgentRun, DEMO_ACCOUNTS, DEMO_PASSWORD, login, roleOf, type Role } from './auth.js';
+import { attestAgent, issuerView, revokeAgent } from './issuer.js';
+import { profiles } from './profiles.js';
+import { DOCS_HTML, openapi, postmanCollection } from './openapi.js';
 
 // Network state as written by `pnpm setup:testnet`, plus the published Mandates
 export type State = {
@@ -20,6 +24,9 @@ export type State = {
   mandateHash: string;
   mandates: Record<string, SignedMandate>;
   ap4m?: { agentKey: string };
+  agents?: { marketing?: { address: string; seed: string; mandateHash: string } };
+  mandateSetHash?: string;
+  mandateSets?: Record<string, MandateSet>;
 };
 
 export type Req = { method: string; path: string; body: any; headers: Record<string, string | undefined> };
@@ -81,6 +88,12 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
   if (req.method === 'GET' && req.path === '/monitor') {
     return { status: 200, body: MONITOR_HTML, headers: { 'content-type': 'text/html; charset=utf-8' } };
   }
+  if (req.method === 'GET' && req.path === '/api/openapi.json') return json(200, openapi);
+  if (req.method === 'GET' && req.path === '/api/docs') return { status: 200, body: DOCS_HTML, headers: { 'content-type': 'text/html; charset=utf-8' } };
+  if (req.method === 'GET' && req.path === '/api/postman.json') {
+    const base = req.headers['host'] ? `https://${req.headers['host']}` : openapi.servers[0].url;
+    return { status: 200, body: JSON.stringify(postmanCollection(base), null, 2), headers: { 'content-type': 'application/json', 'content-disposition': 'attachment; filename="flow-check.postman_collection.json"' } };
+  }
   if (req.method === 'GET' && !req.path.startsWith('/api/')) return webFile(req.path);
 
   const issuers = networkIssuers(state);
@@ -88,13 +101,34 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
     network: 'testnet',
     issuers: issuers.map((i) => i.address),
     resolveMandate: async (hash, uri) => state.mandates[hash] ?? (uri?.startsWith('https://') ? fetchMandate(uri) : null),
+    resolveMandateSet: async (hash) => state.mandateSets?.[hash] ?? null,
   });
   await fc.connect();
   try {
     const parts = req.path.split('/').filter(Boolean);
+    const key = demoToken ?? '';
+    const role = roleOf(req.headers['authorization'], key);
+    // Actions that move testnet funds or call the model need a signed-in role (or the operator's demo token)
+    const can = (...roles: Role[]) => !!key && (req.headers['x-demo-token'] === key || (role !== null && roles.includes(role)));
+
+    if (req.method === 'GET' && req.path === '/api/demo-accounts') return json(200, { accounts: DEMO_ACCOUNTS, password: DEMO_PASSWORD });
+    if (req.method === 'POST' && req.path === '/api/login') {
+      const session = key ? login(req.body?.email, req.body?.password, key) : null;
+      return session ? json(200, session) : json(401, { error: 'wrong email or password' });
+    }
+    if (req.method === 'GET' && req.path === '/api/issuer') return json(200, await issuerView(fc, state));
+    if (req.method === 'POST' && req.path === '/api/issuer/revoke') {
+      if (!can('issuer')) return json(401, { error: 'sign in as the issuer' });
+      return json(200, await revokeAgent(fc, state, String(req.body?.agent ?? state.agent.address)));
+    }
+    if (req.method === 'POST' && req.path === '/api/issuer/attest') {
+      if (!can('issuer')) return json(401, { error: 'sign in as the issuer' });
+      return json(200, await attestAgent(fc, state));
+    }
 
     if (req.method === 'GET' && req.path === '/api/network') return json(200, publicNetwork(state));
-    if (req.method === 'GET' && req.path === '/api/directory') return json(200, await directory(fc, issuers));
+    if (req.method === 'GET' && req.path === '/api/directory') return json(200, { ...(await directory(fc, issuers)), profiles: profiles(state) });
+    if (req.method === 'GET' && req.path === '/api/profiles') return json(200, profiles(state));
     if (req.method === 'GET' && parts[1] === 'agent' && parts[2]) return json(200, await fc.verifyAgent(parts[2]));
     if (req.method === 'GET' && parts[1] === 'pass' && parts[2]) return json(200, await fc.verifyPass(parts[2]));
     if (req.method === 'POST' && req.path === '/api/check') {
@@ -104,7 +138,22 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
     if (req.method === 'GET' && req.path === '/api/events') return json(200, await events(fc, state, [state.business.address, state.rogue.address]));
     if (req.method === 'GET' && parts[1] === 'activity' && parts[2]) return json(200, await events(fc, state, [parts[2]]));
 
-    if (req.method === 'GET' && req.path === '/api/bills') return json(200, bills(state));
+    // Which agent the signed-in user works with: team members only see their own agent
+    const myAgent: AgentKey = role === 'member' ? 'marketing' : 'payables';
+    if (req.method === 'GET' && req.path === '/api/bills') return json(200, bills(state, myAgent));
+    if (req.method === 'GET' && req.path === '/api/me') {
+      const a = agentOf(state, myAgent);
+      return json(200, { role, agent: a.address, agentKey: myAgent, business: state.business.address, canApprove: role === 'business' });
+    }
+    if (req.method === 'GET' && req.path === '/api/business/agents') {
+      const keys: AgentKey[] = state.agents?.marketing ? ['payables', 'marketing'] : ['payables'];
+      return json(200, await Promise.all(keys.map(async (k) => {
+        const a = agentOf(state, k);
+        const kya = await fc.verifyAgent(a.address);
+        const signed = kya.mandateHash ? state.mandates[kya.mandateHash] : null;
+        return { key: k, address: a.address, authorized: kya.authorized, evm: kya.evm, mandate: signed?.mandate ?? null, spent: signed ? await fc.spent(signed.mandate.principal, a.address) : null };
+      })));
+    }
     if (req.method === 'GET' && parts[1] === 'mandates' && parts[2] === 'hash' && parts[3]) {
       const m = state.mandates[parts[3].toUpperCase()];
       return m ? json(200, m) : json(404, { error: 'unknown mandate' });
@@ -121,14 +170,15 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
 
     // The agent moves testnet funds: only with the demo token
     if (req.method === 'POST' && req.path === '/api/agent/run') {
-      if (!demoToken || req.headers['x-demo-token'] !== demoToken) return json(401, { error: 'demo token required' });
+      if (!can('business', 'member')) return json(401, { error: 'sign in as the business' });
+      if (!allowAgentRun()) return json(429, { error: 'the demo agent is busy, try again in a few minutes' });
       const message = String(req.body?.message ?? '').slice(0, 2000) || "Pay this month's bills.";
-      return json(200, await runAgent(fc, state, message));
+      return json(200, await runAgent(fc, state, message, myAgent));
     }
 
     // Demo scenes move testnet funds: only with the demo token
     if (req.method === 'POST' && parts[1] === 'demo' && parts[2]) {
-      if (!demoToken || req.headers['x-demo-token'] !== demoToken) return json(401, { error: 'demo token required' });
+      if (!can('business')) return json(401, { error: 'sign in as the business' });
       return json(200, await scene(fc, state, parts[2]));
     }
     return json(404, { error: 'not found' });

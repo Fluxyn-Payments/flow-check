@@ -17,7 +17,7 @@ rm -rf dist/web && cp -R ../web/dist dist/web
 # 1 · Network state (with seeds) and Mandates → Secrets Manager
 STATE=$(node -e '
 const fs=require("fs"),p=require("path"),d=process.argv[1];
-const s=JSON.parse(fs.readFileSync(p.join(d,"testnet.json")));s.mandates={};try{s.ap4m={agentKey:fs.readFileSync(p.join(d,"agent-private-key"),"utf8").trim()}}catch{};
+const s=JSON.parse(fs.readFileSync(p.join(d,"testnet.json")));s.mandates={};s.mandateSets={};try{for(const f of fs.readdirSync(p.join(d,"mandate-sets")))s.mandateSets[f.replace(".json","")]=JSON.parse(fs.readFileSync(p.join(d,"mandate-sets",f)))}catch{};try{s.ap4m={agentKey:fs.readFileSync(p.join(d,"agent-private-key"),"utf8").trim()}}catch{};
 for(const f of fs.readdirSync(p.join(d,"mandates")))s.mandates[f.replace(".json","")]=JSON.parse(fs.readFileSync(p.join(d,"mandates",f)));
 process.stdout.write(JSON.stringify(s));' "$STATE_DIR")
 if aws_ secretsmanager describe-secret --secret-id "$SECRET" >/dev/null 2>&1; then

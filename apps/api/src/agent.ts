@@ -6,11 +6,17 @@ import type { State } from './app.js';
 const MODEL = process.env.AGENT_MODEL ?? 'us.anthropic.claude-sonnet-5-5';
 const MAX_TURNS = 12;
 
-// This month's bills for the demo business. Demo data; the payments are real on testnet.
-export const bills = (s: State) => [
-  { id: 'INV-1042', vendor: 'Cloud provider', destination: s.suppliers.a.address, amount: 1200, currency: 'RLUSD', category: 'cloud' },
-  { id: 'INV-1043', vendor: 'Design studio', destination: s.suppliers.b.address, amount: 6000, currency: 'RLUSD', category: 'design' },
-  { id: 'INV-1044', vendor: 'New vendor', destination: s.vendor.address, amount: 300, currency: 'RLUSD', category: 'services' },
+// This month's bills, per agent. Demo data; the payments are real on testnet.
+export type AgentKey = 'payables' | 'marketing';
+export const agentOf = (s: State, key: AgentKey) => (key === 'marketing' && s.agents?.marketing ? s.agents.marketing : { address: s.agent.address, seed: s.agent.seed, mandateHash: s.mandateHash });
+export const bills = (s: State, key: AgentKey = 'payables') => key === 'marketing' ? [
+  { id: 'MKT-201', vendor: 'Atelier Norte Studio', destination: s.suppliers.b.address, amount: 800, currency: 'RLUSD', category: 'design' },
+  { id: 'MKT-202', vendor: 'Atelier Norte Studio · launch event', destination: s.suppliers.b.address, amount: 2400, currency: 'RLUSD', category: 'events' },
+  { id: 'MKT-203', vendor: 'Stratus Cloud LLC', destination: s.suppliers.a.address, amount: 300, currency: 'RLUSD', category: 'cloud' },
+] : [
+  { id: 'INV-1042', vendor: 'Stratus Cloud LLC', destination: s.suppliers.a.address, amount: 1200, currency: 'RLUSD', category: 'cloud' },
+  { id: 'INV-1043', vendor: 'Atelier Norte Studio', destination: s.suppliers.b.address, amount: 6000, currency: 'RLUSD', category: 'design' },
+  { id: 'INV-1044', vendor: 'New vendor (unverified)', destination: s.vendor.address, amount: 300, currency: 'RLUSD', category: 'services' },
 ];
 
 const SYSTEM = `You are the payables agent of a business. You pay its bills on the XRP Ledger, acting for the business through a delegation.
@@ -18,7 +24,9 @@ Rules:
 - You can only move money with the pay_with_pass tool. It runs Flow Check: it pays, asks the CFO for approval, or refuses.
 - Never try to work around a refusal or an approval request. Report it.
 - Before paying, check who you are with verify_agent.
-- Keep your final answer short: one line per bill with the outcome and the transaction link if there is one, then what the CFO needs to do.`;
+- Always pass each bill's category to pay_with_pass and check_mandate: your Mandate may only allow some categories.
+- Keep your final answer short: one line per bill with the outcome, then what the CFO needs to do. Do not paste transaction links; the app shows them.
+- If the CFO only asks a question (balance of rules, what you can do, whether a supplier has a Pass), answer it with the read-only tools and do not pay.`;
 
 const tool = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []): Tool => ({
   toolSpec: { name, description, inputSchema: { json: { type: 'object', properties, required } as any } },
@@ -44,14 +52,14 @@ const brief = (r: any) => ({
   failed: (r.checks ?? []).filter((c: any) => !c.ok).map((c: any) => `${c.label}: ${c.detail}`),
 });
 
-export async function runAgent(fc: FlowCheck, s: State, message: string): Promise<AgentRun> {
+export async function runAgent(fc: FlowCheck, s: State, message: string, key: AgentKey = 'payables'): Promise<AgentRun> {
   const bedrock = new BedrockRuntimeClient({});
-  const agent = Wallet.fromSeed(s.agent.seed);
+  const agent = Wallet.fromSeed(agentOf(s, key).seed);
   const steps: Step[] = [];
 
   const exec = async (name: string, input: any): Promise<unknown> => {
     switch (name) {
-      case 'list_bills': return bills(s);
+      case 'list_bills': return bills(s, key);
       case 'verify_agent': { const r = await fc.verifyAgent(agent.address); return { authorized: r.authorized, principal: r.principal, checks: r.checks.map((c) => `${c.ok ? 'ok' : 'FAIL'} ${c.label}`) }; }
       case 'verify_pass': return fc.verifyPass(String(input.account));
       case 'check_mandate': return brief(await fc.checkMandate(agent.address, { destination: input.destination, amount: Number(input.amount), currency: input.currency, category: input.category }));
