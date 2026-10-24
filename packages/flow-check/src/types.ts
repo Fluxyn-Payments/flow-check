@@ -9,7 +9,9 @@ export type Mandate = {
   credential: { issuer: string; type: string };
   enabled: boolean;
   permissions: { pay: Level; collect: Level; treasury: Level };
-  limits: { currency: 'USD'; perPayment: number; daily: number; monthly: number };
+  limits: { currency: 'USD'; perPayment: number; daily: number; monthly: number; quarterly?: number };
+  /** Spending categories this agent may pay (for example from the ERP). Absent = any category. */
+  categories?: string[];
   rules: { category?: string; counterparty?: string; approval: 'AUTO' | 'ASK'; maxUsd?: number }[];
   counterparties: { onchain: 'PASSPORT_NETWORK' };
   issuedAt: string;
@@ -50,7 +52,11 @@ export type AgentResult = {
 export type PaymentRequest = { amount: number; currency: string; destination: string; category?: string };
 
 // What the agent already spent, in USD. Flow Check does not keep state; the caller passes it.
-export type Usage = { today: number; month: number };
+export type Usage = { today: number; month: number; quarter?: number };
+
+// The business's current Mandates, one per agent. Its hash is anchored on the business account (DIDSet),
+// so a business with several agents can say which Mandate is in force for each one.
+export type MandateSet = { schema: 'flowcheck.mandate-set/v1'; principal: string; agents: Record<string, string>; issuedAt: string };
 
 export type MandateResult = {
   decision: Decision;

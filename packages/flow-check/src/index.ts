@@ -4,7 +4,7 @@ import { Client, type Payment, type Wallet } from 'xrpl';
 import { deriveAddress, verify } from 'ripple-keypairs';
 import { canonical, currencyCode, fromHex, sha256Hex, toHex } from './encoding.js';
 import type {
-  AgentResult, Check, CredentialInfo, CredentialType, MandateResult, PassResult, PaymentRequest, SignedMandate, Usage,
+  AgentResult, Check, CredentialInfo, CredentialType, MandateResult, MandateSet, PassResult, PaymentRequest, SignedMandate, Usage,
 } from './types.js';
 
 export * from './types.js';
@@ -26,6 +26,8 @@ export type FlowCheckOptions = {
   /** Finds the published Mandate for an anchored hash. Defaults to https fetch, or a local folder. */
   resolveMandate?: (hash: string, uri: string | null) => Promise<SignedMandate | null>;
   mandateDir?: string;
+  /** Finds the business's Mandate set (one current Mandate per agent) for the hash anchored on its account. */
+  resolveMandateSet?: (hash: string, uri: string | null) => Promise<MandateSet | null>;
   /** USD value of one unit of each currency. RLUSD and USD are 1. */
   rates?: Record<string, number>;
 };
@@ -129,7 +131,8 @@ export class FlowCheck {
     const now = new Date();
     const dayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
     const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
-    const usage: Usage = { today: 0, month: 0 };
+    const quarterStart = Date.UTC(now.getUTCFullYear(), Math.floor(now.getUTCMonth() / 3) * 3, 1);
+    const usage: Usage = { today: 0, month: 0, quarter: 0 };
     let marker: unknown;
     for (let page = 0; page < 5; page++) {
       const r: any = await this.client.request({ command: 'account_tx', account: principal, limit: 200, forward: false, marker } as any);
@@ -137,18 +140,19 @@ export class FlowCheck {
       for (const t of r.result.transactions) {
         const tx = t.tx_json ?? t.tx;
         const when = tx.date !== undefined ? (tx.date + RIPPLE_EPOCH) * 1000 : 0;
-        if (when < monthStart) { older = true; continue; }
+        if (when < quarterStart) { older = true; continue; }
         if (tx.TransactionType !== 'Payment' || tx.Account !== principal || tx.Delegate !== agent || t.meta?.TransactionResult !== 'tesSUCCESS') continue;
         const amt = t.meta?.delivered_amount ?? tx.DeliverMax ?? tx.Amount;
         const usd = typeof amt === 'string' ? (Number(amt) / 1e6) * (rates.XRP ?? NaN) : Number(amt.value) * (rates[fromCurrency(amt.currency)] ?? NaN);
         if (!Number.isFinite(usd)) continue;
-        usage.month += usd;
+        usage.quarter! += usd;
+        if (when >= monthStart) usage.month += usd;
         if (when >= dayStart) usage.today += usd;
       }
       marker = r.result.marker;
       if (older || !marker) break;
     }
-    return { today: Number(usage.today.toFixed(2)), month: Number(usage.month.toFixed(2)) };
+    return { today: Number(usage.today.toFixed(2)), month: Number(usage.month.toFixed(2)), quarter: Number(usage.quarter!.toFixed(2)) };
   }
 
   // ---------- Flow Check ----------
@@ -186,8 +190,13 @@ export class FlowCheck {
         const sameIssuer = !!pass.credential && pass.credential.issuer === kya.issuer;
         add({ id: 'same_issuer', label: 'Attested by the business issuer', ok: sameIssuer, detail: sameIssuer ? 'The issuer that verified the business also attested the agent' : "The agent was attested by a different issuer than the business's Pass" });
       }
-      const current = (await this.didHash(principal)).hash;
-      const live = current === hash;
+      const anchor = await this.didHash(principal);
+      const current = anchor.hash;
+      let live = current === hash;
+      if (!live && current && this.opts.resolveMandateSet) {
+        const set = await this.opts.resolveMandateSet(current, anchor.uri).catch(() => null);
+        live = !!set && set.principal === principal && set.agents[agent] === hash;
+      }
       add({ id: 'business_anchor', label: 'Current Mandate', ok: live, detail: live ? 'The business anchored this Mandate as its current one' : current ? 'The business anchored a different Mandate: this one is not current' : 'The business has not anchored a current Mandate' });
     }
 
@@ -223,6 +232,14 @@ export class FlowCheck {
         checks.push({ id: 'per_payment', label: 'Per-payment limit', ok: usd <= m.limits.perPayment, effect: 'APPROVAL', detail: `USD ${usd.toFixed(2)} of USD ${m.limits.perPayment}` });
         checks.push({ id: 'daily', label: 'Daily limit', ok: usage.today + usd <= m.limits.daily, effect: 'APPROVAL', detail: `USD ${(usage.today + usd).toFixed(2)} of USD ${m.limits.daily}` });
         checks.push({ id: 'monthly', label: 'Monthly limit', ok: usage.month + usd <= m.limits.monthly, effect: 'APPROVAL', detail: `USD ${(usage.month + usd).toFixed(2)} of USD ${m.limits.monthly}` });
+        if (m.limits.quarterly !== undefined) {
+          const q = (usage.quarter ?? usage.month) + usd;
+          checks.push({ id: 'quarterly', label: 'Quarterly budget', ok: q <= m.limits.quarterly, effect: 'APPROVAL', detail: `USD ${q.toFixed(2)} of USD ${m.limits.quarterly}` });
+        }
+      }
+      if (m.categories) {
+        const allowed = !!req.category && m.categories.includes(req.category);
+        checks.push({ id: 'category', label: 'Category allowed', ok: allowed, effect: 'DENY', detail: allowed ? `${req.category} is in this agent's Mandate` : `${req.category ?? 'No category'} is not one of ${m.categories.join(', ')}` });
       }
       const rule = m.rules.find((r) => (r.counterparty && r.counterparty === req.destination) || (r.category && r.category === req.category));
       if (rule) {
