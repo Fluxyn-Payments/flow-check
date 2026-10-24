@@ -1,8 +1,0 @@
-{
-  "name": "@fluxyn/flow-check",
-  "version": "0.0.1",
-  "license": "MIT",
-  "type": "module",
-  "main": "dist/index.js",
-  "scripts": { "build": "tsc -p ." }
-}
