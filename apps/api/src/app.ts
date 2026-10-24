@@ -37,7 +37,7 @@ export type Res = { status: number; body: string; headers: Record<string, string
 const json = (status: number, data: unknown): Res => ({ status, body: JSON.stringify(data), headers: { 'content-type': 'application/json' } });
 
 // The web app (apps/web build) is bundled next to the function. Unknown paths fall back to index.html.
-const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 async function webFile(path: string): Promise<Res> {
   const root = process.env.WEB_DIR ?? join(process.cwd(), 'web');
   const rel = normalize(path).replace(/^(\.\.[/\\])+/, '').replace(/^\/+/, '') || 'index.html';
