@@ -3,6 +3,7 @@ import { Wallet } from 'xrpl';
 import type { FlowCheck } from '@fluxyn/flow-check';
 import type { State } from './app.js';
 import { contextPrompt, getKnowledge } from './knowledge.js';
+import { payoutViaRipple, type FiatBeneficiary } from './ripple.js';
 
 const MODEL = process.env.AGENT_MODEL ?? 'us.anthropic.claude-sonnet-5-5';
 const MAX_TURNS = 12;
@@ -18,7 +19,17 @@ export const bills = (s: State, key: AgentKey = 'payables') => key === 'marketin
   { id: 'INV-1042', vendor: 'Stratus Cloud LLC', destination: s.suppliers.a.address, amount: 1200, currency: 'RLUSD', category: 'cloud' },
   { id: 'INV-1043', vendor: 'Atelier Norte Studio', destination: s.suppliers.b.address, amount: 6000, currency: 'RLUSD', category: 'design' },
   { id: 'INV-1044', vendor: 'New vendor (unverified)', destination: s.vendor.address, amount: 300, currency: 'RLUSD', category: 'services' },
+  ...(s.suppliers.mx ? [{ id: 'INV-1045', vendor: 'Estudio Bruma SA de CV (Mexico)', destination: s.suppliers.mx.address, amount: 2500, currency: 'USD', category: 'design', rail: 'ripple' as const }] : []),
 ];
+
+// Suppliers paid in local currency through Ripple Payments Direct (their Pass is still on XRPL)
+const FIAT: Record<string, FiatBeneficiary> = {
+  'INV-1045': {
+    name: 'Estudio Bruma SA de CV', country: 'MX', currency: 'MXN', rail: 'MX_SPEI', clabe: '002010077777777771', bankName: 'Banamex',
+    email: 'pagos@estudiobruma.example', phone: '+525500000000',
+    address: { streetAddress: ['Av. Paseo de la Reforma 222'], city: 'Ciudad de Mexico', stateOrProvince: 'CMX', postalCode: '06600', country: 'MX' },
+  },
+};
 
 const SYSTEM = `You are the payables agent of a business. You pay its bills on the XRP Ledger, acting for the business through a delegation.
 Rules:
@@ -26,6 +37,7 @@ Rules:
 - Never try to work around a refusal or an approval request. Report it.
 - Before paying, check who you are with verify_agent.
 - Always pass each bill's category to pay_with_pass and check_mandate: your Mandate may only allow some categories.
+- Some suppliers are paid in their local currency through Ripple Payments Direct. Use pay_with_pass for them too, with the bill's currency (USD); it routes the payout. If the result says simulated, say the payout was sent to Ripple's mock and do not comment on the returned amounts.
 - Your final answer is shown under cards that already list every bill and its outcome. So reply in at most two short sentences and 40 words, plain text: no markdown, no lists, no links, do not repeat amounts or bill numbers already shown. Say what happened overall and the single most useful next step.
 - If the CFO only asks a question (balance of rules, what you can do, whether a supplier has a Pass), answer it with the read-only tools and do not pay.`;
 
@@ -69,6 +81,14 @@ export async function runAgent(fc: FlowCheck, s: State, message: string, key: Ag
         return { bill: input.bill_id ?? b?.id, ...brief(await fc.checkMandate(agent.address, { destination: input.destination, amount: Number(input.amount), currency: input.currency, category: input.category })) };
       }
       case 'pay_with_pass': {
+        const bill = bills(s, key).find((x) => x.destination === input.destination && x.amount === Number(input.amount)) as { id: string; rail?: string } | undefined;
+        if (bill?.rail === 'ripple') {
+          // Same Flow Check first; only then the cross-border payout
+          const check = await fc.checkMandate(agent.address, { destination: input.destination, amount: Number(input.amount), currency: 'USD', category: input.category });
+          if (check.decision !== 'ALLOW') return { bill: bill.id, rail: 'Ripple Payments Direct', ...brief({ ...check, status: check.decision === 'DENY' ? 'REFUSED' : 'PENDING_APPROVAL' }) };
+          const payout = await payoutViaRipple(FIAT[bill.id], Number(input.amount), bill.id);
+          return { bill: bill.id, decision: 'ALLOW', status: 'PAID', ...payout };
+        }
         const r = await fc.payWithPass({ agent, destination: input.destination, amount: Number(input.amount), currency: input.currency, category: input.category, tokenIssuer: input.currency === 'XRP' ? undefined : s.rlusdIssuer.address });
         return { bill: input.bill_id, ...brief(r) };
       }

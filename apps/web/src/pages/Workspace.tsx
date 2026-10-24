@@ -8,7 +8,7 @@ import { getSession } from '../session';
 type Bill = { id: string; vendor: string; destination: string; amount: number; currency: string; category: string };
 type Step = { tool: string; input: Record<string, unknown>; output: Record<string, unknown> };
 type AgentRun = { model: string; reply: string; steps: Step[] };
-type PayOutput = { bill?: string; decision?: string; status?: string; engineResult?: string; explorer?: string; failed?: string[] };
+type PayOutput = { bill?: string; decision?: string; status?: string; engineResult?: string; explorer?: string; failed?: string[]; rail?: string; simulated?: boolean; paymentId?: string; quote?: { sourceAmount: number; destinationAmount: number; destinationCurrency: string; paymentRail: string } | null; requested?: { amount: number; currency: string; to: string; rail: string } };
 type MandateView = { mandate: null | { limits: { perPayment: number; daily: number; monthly: number; quarterly?: number }; categories?: string[] }; spent: { today: number; month: number; quarter?: number } | null };
 type Ap4m = { enabled: boolean; channel?: { id: string; cap: string; status: string; lastVoucher: string | null } | null; budget?: { cap: string } };
 type Msg = { id: number; from: 'user' | 'agent'; node: ReactNode };
@@ -52,6 +52,7 @@ function Outcome({ o, bill }: { o: PayOutput; bill?: Bill }) {
         <span className="block font-semibold">{bill?.vendor ?? o.bill}</span>
         <span className="block text-xs text-muted">{s.label}{o.failed?.length ? ` · ${o.failed[0].split(':').slice(1).join(':').trim()}` : ''}</span>
         {o.explorer && <a href={o.explorer} target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-xs font-semibold text-tealink hover:underline">{o.engineResult} <ExternalLink className="h-3 w-3" /></a>}
+        {o.rail && <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted"><Pill tone="teal">{o.rail}</Pill>{o.simulated && <Pill tone="warn">simulated · Ripple mock</Pill>}{o.quote ? <span className="num">USD {o.quote.sourceAmount.toLocaleString('en-US')} → {o.quote.destinationCurrency} {o.quote.destinationAmount.toLocaleString('en-US')} via {o.quote.paymentRail}</span> : o.requested && <span className="num">USD {o.requested.amount.toLocaleString('en-US')} → {o.requested.to} via {o.requested.rail}</span>}</span>}
       </span>
       {bill && <span className="num font-mono text-[13px]">{bill.amount.toLocaleString('en-US')} {bill.currency}</span>}
     </li>

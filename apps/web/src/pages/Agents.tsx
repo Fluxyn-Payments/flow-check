@@ -89,7 +89,7 @@ export function Agents() {
           {[
             { name: 'XRP Ledger · RLUSD', detail: 'Suppliers with a Pass', live: true },
             { name: 'Mastercard Agent Pay for Machines', detail: ap4m?.channel ? `Funded channel · ${ap4m.channel.status}` : 'Funded channel on XRPL EVM', live: !!ap4m?.enabled },
-            { name: 'Ripple Payments Direct', detail: 'Cross-border fiat payouts', live: false },
+            { name: 'Ripple Payments Direct', detail: 'Cross-border fiat payouts (Ripple mock until UAT access)', live: true },
           ].map((r) => (
             <div key={r.name} className="flex items-start justify-between gap-2 rounded-xl border border-line px-3 py-3">
               <div><div className="text-sm font-semibold">{r.name}</div><div className="text-xs text-muted">{r.detail}</div></div>

@@ -20,7 +20,7 @@ export type State = {
   rlusdIssuer: { address: string; seed: string };
   business: { address: string; seed: string };
   agent: { address: string; seed: string };
-  suppliers: { a: { address: string; seed: string }; b: { address: string; seed: string } };
+  suppliers: { a: { address: string; seed: string }; b: { address: string; seed: string }; mx?: { address: string; seed: string } };
   vendor: { address: string; seed: string };
   rogue: { address: string; seed: string };
   mandateHash: string;

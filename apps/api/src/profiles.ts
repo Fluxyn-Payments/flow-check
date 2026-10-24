@@ -22,6 +22,7 @@ export function profiles(s: State): Record<string, Profile> {
     [s.agent.address]: { name: 'Lumen Robotics · payables agent', kind: 'agent', tag: 'Payables', description: "Pays the month's supplier invoices inside its Mandate and buys verification reports through Mastercard AP4M", source: 'nyc' },
     [s.suppliers.a.address]: { name: 'Stratus Cloud LLC', kind: 'business', description: 'Cloud provider, supplier of Lumen Robotics', source: 'nyc' },
     [s.suppliers.b.address]: { name: 'Atelier Norte Studio', kind: 'business', description: 'Design studio, supplier of Lumen Robotics', source: 'nyc' },
+    ...(s.suppliers.mx ? { [s.suppliers.mx.address]: { name: 'Estudio Bruma SA de CV', kind: 'business' as const, description: 'Design studio in Mexico City, paid in MXN through Ripple Payments Direct', source: 'nyc' as const } } : {}),
     [s.vendor.address]: { name: 'New vendor (unverified)', kind: 'business', description: 'No Pass: Flow Check does not pay it', source: 'nyc' },
     ...(s.agents?.marketing ? { [s.agents.marketing.address]: { name: 'Lumen Robotics · marketing agent', kind: 'agent' as const, tag: 'Marketing', description: 'Pays design, ads and events within a quarterly budget; operated by the marketing team', source: 'nyc' as const } } : {}),
     [s.rogue.address]: { name: 'Unknown agent', kind: 'agent', tag: 'No KYA', description: 'An agent without attestation; the ledger refuses its payments', source: 'nyc' },
