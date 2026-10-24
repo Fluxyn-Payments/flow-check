@@ -2,6 +2,7 @@ import { BedrockRuntimeClient, ConverseCommand, type ContentBlock, type Message,
 import { Wallet } from 'xrpl';
 import type { FlowCheck } from '@fluxyn/flow-check';
 import type { State } from './app.js';
+import { contextPrompt, getKnowledge } from './knowledge.js';
 
 const MODEL = process.env.AGENT_MODEL ?? 'us.anthropic.claude-sonnet-5-5';
 const MAX_TURNS = 12;
@@ -56,6 +57,7 @@ export async function runAgent(fc: FlowCheck, s: State, message: string, key: Ag
   const bedrock = new BedrockRuntimeClient({});
   const agent = Wallet.fromSeed(agentOf(s, key).seed);
   const steps: Step[] = [];
+  const system = SYSTEM + contextPrompt(await getKnowledge(key));
 
   const exec = async (name: string, input: any): Promise<unknown> => {
     switch (name) {
@@ -71,13 +73,13 @@ export async function runAgent(fc: FlowCheck, s: State, message: string, key: Ag
     }
   };
 
-  if (process.env.ANTHROPIC_API_KEY) return runOnAnthropic(message, exec, steps);
+  if (process.env.ANTHROPIC_API_KEY) return runOnAnthropic(message, exec, steps, system);
 
   const messages: Message[] = [{ role: 'user', content: [{ text: message }] }];
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const res = await bedrock.send(new ConverseCommand({
       modelId: MODEL,
-      system: [{ text: SYSTEM }],
+      system: [{ text: system }],
       messages,
       toolConfig: { tools: TOOLS },
       inferenceConfig: { maxTokens: 1500 },
@@ -107,14 +109,14 @@ export async function runAgent(fc: FlowCheck, s: State, message: string, key: Ag
 // Same loop on the Anthropic API, used when the account's Bedrock access is not available
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5-5';
 
-async function runOnAnthropic(message: string, exec: (name: string, input: any) => Promise<unknown>, steps: Step[]): Promise<AgentRun> {
+async function runOnAnthropic(message: string, exec: (name: string, input: any) => Promise<unknown>, steps: Step[], system: string): Promise<AgentRun> {
   const tools = TOOLS.map((t) => ({ name: t.toolSpec!.name, description: t.toolSpec!.description, input_schema: (t.toolSpec!.inputSchema as any).json }));
   const messages: any[] = [{ role: 'user', content: message }];
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 1500, system: SYSTEM, tools, messages }),
+      body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 1500, system, tools, messages }),
     });
     const res: any = await r.json();
     if (!r.ok) throw new Error(res?.error?.message ?? `Anthropic API ${r.status}`);

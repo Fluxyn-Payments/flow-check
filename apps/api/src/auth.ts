@@ -11,14 +11,15 @@ export const DEMO_ACCOUNTS: { email: string; role: Role; name: string; org: stri
   { email: 'ops@fluxyn.com', role: 'network', name: 'Network operations', org: 'Fluxyn' },
   { email: 'merchant@demo.fluxyn.com', role: 'merchant', name: 'Merchant', org: 'Flow Check reports' },
 ];
-export const DEMO_PASSWORD = 'flowcheck-nyc';
+// Set at deploy time; the sign-in page shows it pre-filled
+export const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? '';
 
 const TTL_MS = 12 * 3600_000;
 const sign = (payload: string, key: string) => createHmac('sha256', key).update(payload).digest('base64url');
 
 export function login(email: string, password: string, key: string) {
   const account = DEMO_ACCOUNTS.find((a) => a.email === String(email).trim().toLowerCase());
-  if (!account || password !== DEMO_PASSWORD) return null;
+  if (!account || !DEMO_PASSWORD || password !== DEMO_PASSWORD) return null;
   const payload = Buffer.from(JSON.stringify({ role: account.role, exp: Date.now() + TTL_MS })).toString('base64url');
   return { token: `${payload}.${sign(payload, key)}`, ...account };
 }

@@ -28,7 +28,8 @@ export const openapi = {
   tags: [
     { name: 'Flow Check', description: 'Know Your Agent, Pass and Mandate checks' },
     { name: 'Network', description: 'Issuers, businesses and agents read from the ledger' },
-    { name: 'Agent', description: 'The payables agent and the demo scenes' },
+    { name: 'Agent', description: 'The agent of the signed-in user and the demo scenes' },
+    { name: 'Business', description: 'CFO: agents, budgets and what each agent knows' },
     { name: 'Issuer', description: 'Attest and revoke agents' },
     { name: 'Mastercard AP4M', description: 'Funded channel, vouchers and settlement on XRPL EVM' },
     { name: 'Session', description: 'Demo sign-in' },
@@ -82,11 +83,26 @@ export const openapi = {
       get: { tags: ['Network'], summary: 'Recent ledger transactions of one account', parameters: [addr('address', 'XRPL account', BUSINESS)], responses: { 200: json([{ hash: '18778F58…', type: 'Payment', amount: '1200 RLUSD', result: 'tesSUCCESS', explorer: TX }]) } },
     },
     '/api/bills': {
-      get: { tags: ['Agent'], summary: "This month's bills of the demo business", responses: { 200: json([{ id: 'INV-1042', vendor: 'Cloud provider', destination: SUPPLIER, amount: 1200, currency: 'RLUSD', category: 'cloud' }]) } },
+      get: { tags: ['Agent'], summary: "This month's bills of the signed-in user's agent (the CFO's payables agent, or the team member's agent)", responses: { 200: json([{ id: 'INV-1042', vendor: 'Stratus Cloud LLC', destination: SUPPLIER, amount: 1200, currency: 'RLUSD', category: 'cloud' }]) } },
+    },
+    '/api/me': {
+      get: { tags: ['Session'], summary: 'Who is signed in and which agent they operate', ...auth('business or member'), responses: { 200: json({ role: 'member', agent: 'rHyRoorD6GdqnPfCfkea7jkgSHnatLi2pd', agentKey: 'marketing', business: BUSINESS, canApprove: false }) } },
+    },
+    '/api/business/agents': {
+      get: { tags: ['Business'], summary: "All the business's agents with their Mandate, budget and spending (CFO view)", responses: { 200: json([{ key: 'marketing', address: 'rHyRoorD6GdqnPfCfkea7jkgSHnatLi2pd', authorized: true, evm: null, mandate: { version: 1, validUntil: '2027-01-22T00:00:00.000Z', limits: { perPayment: 2000, daily: 5000, monthly: 10000, quarterly: 25000 }, categories: ['ads', 'design', 'events'] }, spent: { today: 800, month: 800, quarter: 800 } }]) } },
+    },
+    '/api/agents/{agentKey}/knowledge': {
+      get: { tags: ['Business'], summary: 'What an agent knows: instructions, known suppliers, reference documents', ...auth('business, or the member who operates that agent'),
+        parameters: [{ name: 'agentKey', in: 'path', required: true, schema: { type: 'string', enum: ['payables', 'marketing'] } }],
+        responses: { 200: json({ instructions: 'Only pay marketing work: design, ads and events.', suppliers: [{ name: 'Atelier Norte Studio', category: 'design' }], documents: [{ title: 'payment-policy.md', text: '…' }], updatedAt: '2026-10-25T03:10:00.000Z' }), 401: unauthorized } },
+      put: { tags: ['Business'], summary: 'Train an agent (CFO only). Context shapes what the agent proposes; it never overrides the Mandate', ...auth('business'),
+        parameters: [{ name: 'agentKey', in: 'path', required: true, schema: { type: 'string', enum: ['payables', 'marketing'] } }],
+        requestBody: body({ instructions: 'Pay the cloud bill on the 5th. Never split invoices.', suppliers: [{ name: 'Stratus Cloud LLC', account: SUPPLIER, category: 'cloud', notes: 'Due on the 5th' }], documents: [{ title: 'policy.md', text: 'Payment policy…' }] }),
+        responses: { 200: json({ instructions: 'Pay the cloud bill on the 5th. Never split invoices.', suppliers: [], documents: [], updatedAt: '2026-10-25T03:10:00.000Z' }), 401: unauthorized } },
     },
     '/api/agent/run': {
       post: {
-        tags: ['Agent'], summary: 'Ask the payables agent (Claude on Amazon Bedrock); it only pays through Flow Check', ...auth('business'),
+        tags: ['Agent'], summary: "Ask the signed-in user's agent (Claude on Amazon Bedrock); it only pays through Flow Check", ...auth('business or member'),
         requestBody: body({ message: "Pay this month's bills." }),
         responses: { 200: json({ model: 'us.anthropic.claude-sonnet-5-5', reply: 'INV-1042 paid; INV-1043 needs approval; INV-1044 refused.', steps: [{ tool: 'pay_with_pass', input: { destination: SUPPLIER, amount: 1200, currency: 'RLUSD' }, output: { decision: 'ALLOW', status: 'PAID', engineResult: 'tesSUCCESS', explorer: TX } }] }), 401: unauthorized, 429: json({ error: 'the demo agent is busy, try again in a few minutes' }, 'Rate limited') },
       },

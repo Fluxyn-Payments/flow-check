@@ -9,6 +9,7 @@ import { ap4mState, overCapAttempt } from './ap4m.js';
 import { allowAgentRun, DEMO_ACCOUNTS, DEMO_PASSWORD, login, roleOf, type Role } from './auth.js';
 import { attestAgent, issuerView, revokeAgent } from './issuer.js';
 import { profiles } from './profiles.js';
+import { getKnowledge, putKnowledge } from './knowledge.js';
 import { DOCS_HTML, openapi, postmanCollection } from './openapi.js';
 
 // Network state as written by `pnpm setup:testnet`, plus the published Mandates
@@ -144,6 +145,18 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
     if (req.method === 'GET' && req.path === '/api/me') {
       const a = agentOf(state, myAgent);
       return json(200, { role, agent: a.address, agentKey: myAgent, business: state.business.address, canApprove: role === 'business' });
+    }
+    // Agent context: the CFO writes it; team members can read their own agent's
+    if (parts[1] === 'agents' && (parts[2] === 'payables' || parts[2] === 'marketing') && parts[3] === 'knowledge') {
+      const k = parts[2] as AgentKey;
+      if (req.method === 'GET') {
+        if (!can('business') && !(role === 'member' && k === myAgent)) return json(401, { error: 'sign in as the business' });
+        return json(200, await getKnowledge(k));
+      }
+      if (req.method === 'PUT') {
+        if (!can('business')) return json(401, { error: 'only the CFO can change what the agent knows' });
+        return json(200, await putKnowledge(k, req.body ?? {}));
+      }
     }
     if (req.method === 'GET' && req.path === '/api/business/agents') {
       const keys: AgentKey[] = state.agents?.marketing ? ['payables', 'marketing'] : ['payables'];

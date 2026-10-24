@@ -11,6 +11,7 @@ import { Agents } from './pages/Agents';
 import { Issuer } from './pages/Issuer';
 import { SignIn } from './pages/SignIn';
 import { Access } from './pages/Access';
+import { AgentSettings } from './pages/AgentSettings';
 import { getSession, HOME } from './session';
 
 // Light mode everywhere, like the Fluxyn app
@@ -34,6 +35,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/" element={<Home />} />
         <Route path="/agents" element={<Private><Agents /></Private>} />
         <Route path="/agents/:address" element={<Private><Agent /></Private>} />
+        <Route path="/agents/:agentKey/train" element={<Private><AgentSettings /></Private>} />
         <Route path="/workspace" element={<Private><Workspace /></Private>} />
         <Route path="/merchant" element={<Private><Merchant /></Private>} />
         <Route path="/issuer" element={<Private><Issuer /></Private>} />

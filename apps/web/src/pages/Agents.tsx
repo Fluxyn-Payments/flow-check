@@ -72,7 +72,10 @@ export function Agents() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted">
                     <span>Mandate v{m.version} · until {m.validUntil.slice(0, 10)} · signed by the business</span>
-                    <Link to={`/agents/${a.address}`} className="inline-flex items-center gap-1 font-semibold text-tealink hover:underline">Flow Check <ChevronRight className="h-3.5 w-3.5" /></Link>
+                    <span className="flex items-center gap-3">
+                      <Link to={`/agents/${a.key}/train`} className="inline-flex items-center gap-1 font-semibold text-tealink hover:underline">Train agent <ChevronRight className="h-3.5 w-3.5" /></Link>
+                      <Link to={`/agents/${a.address}`} className="inline-flex items-center gap-1 font-semibold text-tealink hover:underline">Flow Check <ChevronRight className="h-3.5 w-3.5" /></Link>
+                    </span>
                   </div>
                 </div>
               ) : <p className="mt-4 text-sm text-muted">No Mandate published.</p>}

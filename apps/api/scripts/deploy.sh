@@ -34,6 +34,10 @@ if ! aws iam get-role --role-name "$ROLE" >/dev/null 2>&1; then
   sleep 10
 fi
 aws iam put-role-policy --role-name "$ROLE" --policy-name invoke-claude --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["bedrock:InvokeModel","bedrock:InvokeModelWithResponseStream"],"Resource":["arn:aws:bedrock:*::foundation-model/anthropic.*","arn:aws:bedrock:*:*:inference-profile/us.anthropic.*"]}]}'
+DATA_BUCKET=flowcheck-data-$(aws sts get-caller-identity --query Account --output text)
+aws s3api head-bucket --bucket "$DATA_BUCKET" 2>/dev/null || aws_ s3api create-bucket --bucket "$DATA_BUCKET" >/dev/null
+aws s3api put-public-access-block --bucket "$DATA_BUCKET" --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+aws iam put-role-policy --role-name "$ROLE" --policy-name agent-knowledge --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\"],\"Resource\":\"arn:aws:s3:::$DATA_BUCKET/knowledge/*\"}]}"
 aws iam put-role-policy --role-name "$ROLE" --policy-name read-state --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"secretsmanager:GetSecretValue\",\"Resource\":\"$SECRET_ARN\"}]}"
 ROLE_ARN=$(aws iam get-role --role-name "$ROLE" --query Role.Arn --output text)
 
@@ -48,7 +52,9 @@ TOKEN=$(cat "$TOKEN_FILE")
 KEY_FILE="$STATE_DIR/anthropic-key"
 EXTRA=""
 [ -s "$KEY_FILE" ] && EXTRA=",ANTHROPIC_API_KEY=$(tr -d '\n' < "$KEY_FILE")"
-ENV="Variables={STATE_SECRET_ID=$SECRET,DEMO_TOKEN=$TOKEN,NODE_OPTIONS=--enable-source-maps$EXTRA}"
+PASS_FILE="$STATE_DIR/demo-password"
+[ -s "$PASS_FILE" ] && EXTRA="$EXTRA,DEMO_PASSWORD=$(tr -d '\n' < "$PASS_FILE")"
+ENV="Variables={STATE_SECRET_ID=$SECRET,DEMO_TOKEN=$TOKEN,DATA_BUCKET=$DATA_BUCKET,NODE_OPTIONS=--enable-source-maps$EXTRA}"
 if aws_ lambda get-function --function-name "$FN" >/dev/null 2>&1; then
   aws_ lambda update-function-code --function-name "$FN" --zip-file fileb://dist/fn.zip >/dev/null
   aws_ lambda wait function-updated --function-name "$FN"
