@@ -37,7 +37,7 @@ export function Issuer() {
       <div className="rise">
         <p className="font-mono text-xs uppercase tracking-[0.16em] text-tealink">Issuer console</p>
         <h1 className="mt-1 text-3xl font-bold sm:text-4xl">{data?.issuer.name ?? 'Issuer'}</h1>
-        <p className="mt-2 max-w-2xl text-muted">The VASP verifies its business clients (KYB), issues their Pass, and attests the agents that act for them. It can revoke an attestation at any time; the change is on the ledger at once.</p>
+        <p className="mt-2 max-w-2xl text-muted">Verify businesses, attest their agents, revoke in one click.</p>
       </div>
 
       {!data && <Loading />}

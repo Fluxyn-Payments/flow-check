@@ -53,7 +53,7 @@ export function AgentSettings() {
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.16em] text-tealink">Train your agent</p>
           <h1 className="mt-1 text-3xl font-bold sm:text-4xl">{NAMES[agentKey] ?? agentKey}</h1>
-          <p className="mt-2 max-w-2xl text-muted">What the agent knows about the business: how to work, who the suppliers are, and reference documents. It shapes what the agent proposes. It never overrides the Mandate: Flow Check still decides every payment.</p>
+          <p className="mt-2 max-w-2xl text-muted">What the agent knows. Flow Check still decides every payment.</p>
         </div>
         <button onClick={save} disabled={!k || saving} className="inline-flex h-11 items-center rounded-full bg-teal px-5 text-[15px] font-semibold text-onteal transition hover:brightness-95 disabled:opacity-55">{saving ? 'Saving…' : 'Save'}</button>
       </div>

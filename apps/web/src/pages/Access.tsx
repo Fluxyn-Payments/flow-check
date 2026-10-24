@@ -66,7 +66,7 @@ export function Access() {
       <div className="rise">
         <p className="font-mono text-xs uppercase tracking-[0.16em] text-tealink">Network admin</p>
         <h1 className="mt-1 text-3xl font-bold sm:text-4xl">Access</h1>
-        <p className="mt-2 max-w-2xl text-muted">Every view, demo account and developer resource of Flow Check in one place. Internal: do not share outside the team and the judges.</p>
+        <p className="mt-2 max-w-2xl text-muted">Every view, account and API. Internal.</p>
       </div>
 
       <Card title="Apps and demo accounts" action={acc && <span className="flex items-center gap-2 text-xs text-muted">Shared password <span className="font-mono text-ink">{acc.password}</span><CopyButton value={acc.password} /></span>}>

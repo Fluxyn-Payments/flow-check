@@ -35,7 +35,7 @@ export function Agents() {
     <div className="space-y-6">
       <div className="rise">
         <h1 className="text-3xl font-bold sm:text-4xl">Agents and budgets</h1>
-        <p className="mt-2 max-w-2xl text-muted">The CFO creates an agent per team, gives it a Mandate (limits, quarterly budget, allowed categories) and a team member who operates it. Team members only see their own agent; settings stay with the CFO.</p>
+        <p className="mt-2 max-w-2xl text-muted">One agent per team, each with its own Mandate.</p>
       </div>
 
       {!agents && <Loading />}

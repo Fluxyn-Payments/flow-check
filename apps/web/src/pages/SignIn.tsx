@@ -7,11 +7,11 @@ import { HOME, ROLE_LABEL, setSession, type Role, type Session } from '../sessio
 type Account = { email: string; role: Role; name: string; org: string };
 
 const ROLES: { role: Role; icon: typeof Building2; blurb: string; wide?: boolean }[] = [
-  { role: 'business', icon: Building2, blurb: 'The CFO: agents, budgets and approvals' },
-  { role: 'member', icon: Megaphone, blurb: 'Marketing team: only its own agent and budget' },
-  { role: 'issuer', icon: Landmark, blurb: 'A VASP that verifies businesses and attests agents' },
-  { role: 'network', icon: NetworkIcon, blurb: 'Fluxyn: every issuer, business and agent' },
-  { role: 'merchant', icon: Store, blurb: 'Paid by agents through Mastercard', wide: true },
+  { role: 'business', icon: Building2, blurb: 'Agents, budgets, approvals' },
+  { role: 'member', icon: Megaphone, blurb: 'One agent, one budget' },
+  { role: 'issuer', icon: Landmark, blurb: 'Verifies businesses and agents' },
+  { role: 'network', icon: NetworkIcon, blurb: 'The whole network' },
+  { role: 'merchant', icon: Store, blurb: 'Paid by agents via Mastercard', wide: true },
 ];
 
 const BILLS = [
@@ -70,9 +70,7 @@ export function SignIn() {
         </span>
 
         <div className="mx-auto flex w-full max-w-[540px] flex-1 flex-col justify-center py-10">
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-tealink">Sign in</p>
-          <h1 className="mt-3 text-[40px] font-bold leading-tight">Welcome back</h1>
-          <p className="mt-2 text-muted">Demo accounts are pre-filled. Pick who you are.</p>
+          <h1 className="text-[36px] font-bold leading-tight">Sign in</h1>
 
           <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {ROLES.map(({ role: r, icon: Icon, blurb, wide }) => {
@@ -130,7 +128,7 @@ export function SignIn() {
         <div className="relative mt-16 max-w-xl">
           <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[rgb(120_230_210)]">Know your agent · anchored in KYB</p>
           <h2 className="mt-5 text-[44px] font-extrabold leading-[1.06] xl:text-[46px]">Agents can pay.<br />The ledger decides <span className="text-[rgb(25_211_202)]">whom.</span></h2>
-          <p className="mt-6 max-w-lg text-lg leading-relaxed text-[rgb(170_214_206)]">Programmable payments for agents, with real-time policy, compliance and auditability on the XRP Ledger.</p>
+          <p className="mt-6 max-w-lg text-lg leading-relaxed text-[rgb(170_214_206)]">Policy, identity and audit for agent payments, on the XRP Ledger.</p>
         </div>
 
         <div className="relative w-full max-w-md self-end rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur">

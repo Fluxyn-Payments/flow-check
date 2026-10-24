@@ -18,9 +18,7 @@ export function Network() {
     <div className="space-y-6">
       <div className="rise">
         <h1 className="text-3xl font-bold sm:text-4xl">The network, read from the ledger</h1>
-        <p className="mt-2 max-w-2xl text-muted">
-          Licensed PSPs and VASPs issue a Pass to the businesses they verified and attest their AI agents. Nothing on this page comes from a database: issuers, businesses and agents are discovered on XRPL.
-        </p>
+        <p className="mt-2 max-w-2xl text-muted">Issuers, businesses and agents, read live from XRPL.</p>
       </div>
 
       {error && <Card><span className="text-danger">{error}</span></Card>}

@@ -50,7 +50,7 @@ export function Merchant() {
       <div className="rise flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold sm:text-4xl">Merchant</h1>
-          <p className="mt-2 max-w-2xl text-muted">Paid by AI agents through Mastercard Agent Pay for Machines. Every voucher and settlement is on-chain, and every paying agent was cleared by Flow Check first.</p>
+          <p className="mt-2 max-w-2xl text-muted">Paid by agents over Mastercard AP4M. Every voucher is on-chain.</p>
         </div>
         {data && <Pill tone={data.enabled ? 'ok' : 'warn'}>{data.enabled ? `live · ${data.network}` : 'not connected'}</Pill>}
       </div>

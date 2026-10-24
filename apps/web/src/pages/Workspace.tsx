@@ -271,12 +271,12 @@ export function Workspace() {
                 : <p className="mt-2 text-xs font-semibold text-sun">Sent to the CFO for approval.</p>}
             </>
           ) : <p className="mt-2 text-sm text-muted">Nothing waiting for you.</p>}
-          <p className="mt-3 text-xs text-muted"><Pill tone="warn">simulated approval</Pill> Signed with the business key on the server. In production the CFO signs on a Ledger device.</p>
+          <p className="mt-3 text-xs text-muted"><Pill tone="warn">simulated approval</Pill> In production the CFO signs on a Ledger.</p>
         </section>
 
         <section className="rounded-2xl border border-line bg-surface p-5">
           <h2 className="flex items-center gap-2 text-lg font-bold"><ShieldAlert className="h-5 w-5 text-danger" />Try to bypass</h2>
-          <p className="mt-2 text-sm text-muted">An agent without KYA pays a verified supplier directly, skipping Flow Check. Only the ledger stands in the way.</p>
+          <p className="mt-2 text-sm text-muted">An unverified agent tries to pay directly. The ledger refuses.</p>
           {bypass ? (
             <p className="mt-3 text-sm"><Pill tone="no">{bypass.engineResult ?? 'refused'}</Pill> {bypass.explorer && <a href={bypass.explorer} target="_blank" rel="noopener" className="font-semibold text-tealink hover:underline">view ↗</a>}</p>
           ) : (
