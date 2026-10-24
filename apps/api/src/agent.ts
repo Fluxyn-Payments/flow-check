@@ -45,7 +45,7 @@ const tool = (name: string, description: string, properties: Record<string, unkn
   toolSpec: { name, description, inputSchema: { json: { type: 'object', properties, required } as any } },
 });
 
-const TOOLS: Tool[] = [
+export const TOOLS: Tool[] = [
   tool('list_bills', "List this month's bills to pay."),
   tool('verify_agent', 'Know Your Agent: check on the ledger that you are attested, delegated and bound by a Mandate.'),
   tool('verify_pass', 'Check whether an account holds a Fluxyn Pass from an issuer on the network.', { account: { type: 'string' } }, ['account']),
@@ -65,13 +65,10 @@ const brief = (r: any) => ({
   failed: (r.checks ?? []).filter((c: any) => !c.ok).map((c: any) => `${c.label}: ${c.detail}`),
 });
 
-export async function runAgent(fc: FlowCheck, s: State, message: string, key: AgentKey = 'payables'): Promise<AgentRun> {
-  const bedrock = new BedrockRuntimeClient({});
+// The agent's tools, shared by the web chat and the agent's own MCP server
+export function agentExec(fc: FlowCheck, s: State, key: AgentKey) {
   const agent = Wallet.fromSeed(agentOf(s, key).seed);
-  const steps: Step[] = [];
-  const system = SYSTEM + contextPrompt(await getKnowledge(key));
-
-  const exec = async (name: string, input: any): Promise<unknown> => {
+  return async (name: string, input: any): Promise<unknown> => {
     switch (name) {
       case 'list_bills': return bills(s, key);
       case 'verify_agent': { const r = await fc.verifyAgent(agent.address); return { authorized: r.authorized, principal: r.principal, checks: r.checks.map((c) => `${c.ok ? 'ok' : 'FAIL'} ${c.label}`) }; }
@@ -95,6 +92,14 @@ export async function runAgent(fc: FlowCheck, s: State, message: string, key: Ag
       default: return { error: `unknown tool ${name}` };
     }
   };
+}
+
+export async function runAgent(fc: FlowCheck, s: State, message: string, key: AgentKey = 'payables'): Promise<AgentRun> {
+  const bedrock = new BedrockRuntimeClient({});
+  const steps: Step[] = [];
+  const system = SYSTEM + contextPrompt(await getKnowledge(key));
+
+  const exec = agentExec(fc, s, key);
 
   if (process.env.ANTHROPIC_API_KEY) return runOnAnthropic(message, exec, steps, system);
 

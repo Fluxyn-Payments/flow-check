@@ -12,6 +12,7 @@ import { profiles } from './profiles.js';
 import { getKnowledge, putKnowledge } from './knowledge.js';
 import { approveBatch } from './batch.js';
 import { prepareLedgerApproval, submitLedgerApproval } from './ledger.js';
+import { agentKeyStatus, handleMcp, issueAgentKey } from './mcp.js';
 import { DOCS_HTML, openapi, postmanCollection } from './openapi.js';
 
 // Network state as written by `pnpm setup:testnet`, plus the published Mandates
@@ -97,6 +98,7 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
     const base = req.headers['host'] ? `https://${req.headers['host']}` : openapi.servers[0].url;
     return { status: 200, body: JSON.stringify(postmanCollection(base), null, 2), headers: { 'content-type': 'application/json', 'content-disposition': 'attachment; filename="flow-check.postman_collection.json"' } };
   }
+  if (req.path.startsWith('/mcp/') && req.method !== 'POST') return json(405, { error: 'POST JSON-RPC to this URL (MCP Streamable HTTP)' });
   if (req.method === 'GET' && !req.path.startsWith('/api/')) return webFile(req.path);
 
   const issuers = networkIssuers(state);
@@ -114,6 +116,23 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
     // Actions that move testnet funds or call the model need a signed-in role (or the operator's demo token)
     const can = (...roles: Role[]) => !!key && (req.headers['x-demo-token'] === key || (role !== null && roles.includes(role)));
 
+    // The agent's own MCP server: the key in the URL selects the agent
+    if (req.method === 'POST' && parts[0] === 'mcp' && parts[1]) {
+      if (!key) return json(503, { error: 'not configured' });
+      const r = await handleMcp(fc, state, parts[1], key, req.body);
+      return r.body === null ? { status: r.status, body: '', headers: {} } : json(r.status, r.body);
+    }
+    if (parts[0] === 'api' && parts[1] === 'agents' && parts[3] === 'mcp-key') {
+      const k: AgentKey = parts[2] === 'marketing' ? 'marketing' : 'payables';
+      if (!can('business')) return json(401, { error: 'only the CFO manages agent keys' });
+      if (req.method === 'GET') return json(200, await agentKeyStatus(k));
+      if (req.method === 'POST') {
+        const token = await issueAgentKey(k, key);
+        const base = process.env.PUBLIC_URL ?? 'https://flowcheck.fluxyn.com';
+        return json(200, { agent: k, url: `${base}/mcp/${token}` });
+      }
+      if (req.method === 'DELETE') { await issueAgentKey(k, key, true); return json(200, { agent: k, active: false }); }
+    }
     if (req.method === 'GET' && req.path === '/api/demo-accounts') return json(200, { accounts: DEMO_ACCOUNTS, password: DEMO_PASSWORD });
     if (req.method === 'POST' && req.path === '/api/login') {
       const session = key ? login(req.body?.email, req.body?.password, key) : null;

@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { Bot, ChevronRight, Code2, Globe, Megaphone, Plug, Puzzle, UserRound } from 'lucide-react';
 import { useApi } from '../api';
 import { Addr, Card, Loading, Pill } from '../components/ui';
+import { AgentMcp } from '../components/AgentMcp';
+import { getSession } from '../session';
 
 type Limits = { perPayment: number; daily: number; monthly: number; quarterly?: number };
 type AgentRow = {
@@ -79,6 +81,7 @@ export function Agents() {
                   </div>
                 </div>
               ) : <p className="mt-4 text-sm text-muted">No Mandate published.</p>}
+              {getSession()?.role === 'business' && <AgentMcp agent={a.key} />}
             </Card>
           );
         })}
