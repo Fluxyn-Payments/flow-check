@@ -39,7 +39,8 @@ Everything is visible live on a monitor that listens to both XRPL and XRPL EVM t
 |---|---|---|
 | Supplier with Pass | Paid on-chain in RLUSD, within the Mandate | `tesSUCCESS` |
 | Payment over the limit | Agent proposes, CFO approves on a Ledger device, then it settles | ✓ after approval |
-| Supplier without Pass | Rejected by the validators — nothing moves | `tecNO_PERMISSION` |
+| Vendor without a Pass | Flow Check refuses to pay it | ✗ refused before the ledger |
+| Rogue agent without KYA pays a verified supplier directly | Rejected by the validators — nothing moves | `tecNO_PERMISSION` |
 | Agent buys a verification | HTTP 402 → agent-signed voucher → Flow Check result released → `VoucherRedeemed`, `ClaimPaid`, `SettlementRecorded` | ✓ AP4M receipt (channel + claim + payout) |
 | Agent tries to exceed its channel cap | Voucher above the funded cap | ✗ rejected by `PaymentLedger` |
 
