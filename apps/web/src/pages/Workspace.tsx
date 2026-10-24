@@ -154,11 +154,11 @@ export function Workspace() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm"><span className="font-semibold">Design studio · 6,000 RLUSD.</span> <span className="text-muted">Over the per-payment limit. The CFO signs as the business.</span></div>
                 <button onClick={() => run('2-approve')} disabled={!!busy} className="rounded-full bg-ink px-3.5 py-1.5 text-sm font-bold text-paper disabled:opacity-50">
-                  {busy === '2-approve' ? 'Signing…' : 'Approve and sign'}
+                  {busy === '2-approve' ? 'Signing…' : 'Approve (simulated)'}
                 </button>
               </div>
             ) : <div className="text-sm text-muted">Nothing waiting for approval.</div>}
-            <div className="mt-3 text-xs text-muted">In the live demo the CFO signs on a Ledger device. Here the business key signs on the server.</div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted"><Pill tone="warn">simulated approval</Pill>Signed with the business key on the server. In production the CFO signs on a Ledger device.</div>
           </Card>
 
           <Card title="Try to bypass Flow Check">

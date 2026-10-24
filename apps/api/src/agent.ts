@@ -3,7 +3,7 @@ import { Wallet } from 'xrpl';
 import type { FlowCheck } from '@fluxyn/flow-check';
 import type { State } from './app.js';
 
-const MODEL = process.env.AGENT_MODEL ?? 'us.anthropic.claude-haiku-5-5';
+const MODEL = process.env.AGENT_MODEL ?? 'us.anthropic.claude-sonnet-5-5';
 const MAX_TURNS = 12;
 
 // This month's bills for the demo business. Demo data; the payments are real on testnet.
@@ -87,7 +87,9 @@ export async function runAgent(fc: FlowCheck, s: State, message: string): Promis
       let output: unknown;
       try { output = await exec(name!, input); } catch (e) { output = { error: (e as Error).message }; }
       steps.push({ tool: name!, input, output });
-      results.push({ toolResult: { toolUseId, content: [{ json: output as any }] } });
+      // Bedrock needs a JSON object here, not an array or a primitive
+      const body = output && typeof output === 'object' && !Array.isArray(output) ? output : { result: output };
+      results.push({ toolResult: { toolUseId, content: [{ json: body as any }] } });
     }
     messages.push({ role: 'user', content: results });
   }

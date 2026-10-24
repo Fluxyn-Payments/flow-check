@@ -47,7 +47,7 @@ export const MONITOR_HTML = String.raw`<!doctype html>
       <div class="scenes">
         <button data-s="1"><span><b>1 · Supplier with a Pass</b><small>1,200 RLUSD inside the Mandate</small></span><span class="pill p-ok">tesSUCCESS</span></button>
         <button data-s="2"><span><b>2 · Over the Mandate</b><small>6,000 RLUSD · the agent asks for approval</small></span><span class="pill p-warn">NEEDS_APPROVAL</span></button>
-        <button data-s="2-approve"><span><b>2 · Approve as the business</b><small>The business signs the pending payment</small></span><span class="pill p-ok">tesSUCCESS</span></button>
+        <button data-s="2-approve"><span><b>2 · Approve as the business</b><small>Simulated: the business key signs on the server</small></span><span class="pill p-ok">tesSUCCESS</span></button>
         <button data-s="3a"><span><b>3a · Vendor without a Pass</b><small>Flow Check refuses before the ledger</small></span><span class="pill p-no">DENY</span></button>
         <button data-s="3b"><span><b>3b · Agent without KYA pays directly</b><small>Skips Flow Check · the validators refuse</small></span><span class="pill p-no">tecNO_PERMISSION</span></button>
       </div>

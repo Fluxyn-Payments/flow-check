@@ -4,6 +4,7 @@ import { ExternalLink } from 'lucide-react';
 
 const NAV = [
   { to: '/', label: 'Network', end: true },
+  { to: '/agents', label: 'Agents' },
   { to: '/workspace', label: 'Agent workspace' },
   { to: '/merchant', label: 'Merchant' },
 ];

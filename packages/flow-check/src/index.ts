@@ -46,6 +46,14 @@ export type PayResult = MandateResult & {
   explorer?: string;
 };
 
+// The agent credential's URI: flowcheck:agent:principal:<business account>[:evm:<0x address>]
+export function agentBinding(uri: string | null): { principal: string | null; evm: string | null } {
+  const m = uri?.match(/^flowcheck:agent:principal:(r[1-9A-HJ-NP-Za-km-z]{24,34})(?::evm:(0x[0-9a-fA-F]{40}))?$/);
+  return { principal: m?.[1] ?? null, evm: m?.[2] ?? null };
+}
+
+const fromCurrency = (code: string) => (code.length === 40 ? fromHex(code).replace(/\0+$/, '') : code);
+
 export class FlowCheck {
   readonly client: Client;
   readonly explorer: string;
@@ -115,6 +123,34 @@ export class FlowCheck {
     }
   }
 
+  /** What the agent already paid for the business today and this month (UTC), in USD, read from the ledger. */
+  async spent(principal: string, agent: string): Promise<Usage> {
+    const rates = this.opts.rates ?? { USD: 1, RLUSD: 1 };
+    const now = new Date();
+    const dayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+    const usage: Usage = { today: 0, month: 0 };
+    let marker: unknown;
+    for (let page = 0; page < 5; page++) {
+      const r: any = await this.client.request({ command: 'account_tx', account: principal, limit: 200, forward: false, marker } as any);
+      let older = false;
+      for (const t of r.result.transactions) {
+        const tx = t.tx_json ?? t.tx;
+        const when = tx.date !== undefined ? (tx.date + RIPPLE_EPOCH) * 1000 : 0;
+        if (when < monthStart) { older = true; continue; }
+        if (tx.TransactionType !== 'Payment' || tx.Account !== principal || tx.Delegate !== agent || t.meta?.TransactionResult !== 'tesSUCCESS') continue;
+        const amt = t.meta?.delivered_amount ?? tx.DeliverMax ?? tx.Amount;
+        const usd = typeof amt === 'string' ? (Number(amt) / 1e6) * (rates.XRP ?? NaN) : Number(amt.value) * (rates[fromCurrency(amt.currency)] ?? NaN);
+        if (!Number.isFinite(usd)) continue;
+        usage.month += usd;
+        if (when >= dayStart) usage.today += usd;
+      }
+      marker = r.result.marker;
+      if (older || !marker) break;
+    }
+    return { today: Number(usage.today.toFixed(2)), month: Number(usage.month.toFixed(2)) };
+  }
+
   // ---------- Flow Check ----------
 
   /** Does this account hold a live Pass from an issuer on the network? */
@@ -144,16 +180,22 @@ export class FlowCheck {
       const delegated = await this.hasDelegation(principal, agent, 'Payment');
       add({ id: 'delegation', label: 'Payments delegated', ok: delegated, detail: delegated ? 'DelegateSet: the business delegated Payment to the agent' : 'No delegation from the business to this agent' });
       if (kya) {
-        const bound = kya.uri?.includes(principal) ?? false;
+        const named = agentBinding(kya.uri).principal;
+        const bound = named === principal;
         add({ id: 'bound', label: 'Agent bound to the business', ok: bound, detail: bound ? 'The agent credential names this business' : 'The agent credential does not name this business' });
+        const sameIssuer = !!pass.credential && pass.credential.issuer === kya.issuer;
+        add({ id: 'same_issuer', label: 'Attested by the business issuer', ok: sameIssuer, detail: sameIssuer ? 'The issuer that verified the business also attested the agent' : "The agent was attested by a different issuer than the business's Pass" });
       }
+      const current = (await this.didHash(principal)).hash;
+      const live = current === hash;
+      add({ id: 'business_anchor', label: 'Current Mandate', ok: live, detail: live ? 'The business anchored this Mandate as its current one' : current ? 'The business anchored a different Mandate: this one is not current' : 'The business has not anchored a current Mandate' });
     }
 
-    return { authorized: checks.every((c) => c.ok), agent, principal, issuer: kya?.issuer ?? null, mandateHash: hash, checks };
+    return { authorized: checks.every((c) => c.ok), agent, principal, issuer: kya?.issuer ?? null, mandateHash: hash, evm: agentBinding(kya?.uri ?? null).evm, checks };
   }
 
   /** Is this payment inside the agent's Mandate? ALLOW, NEEDS_APPROVAL or DENY, every check explained. */
-  async checkMandate(agent: string, req: PaymentRequest, usage: Usage = { today: 0, month: 0 }): Promise<MandateResult> {
+  async checkMandate(agent: string, req: PaymentRequest, usageIn?: Usage): Promise<MandateResult> {
     const rate = (this.opts.rates ?? { USD: 1, RLUSD: 1 })[req.currency];
     const usd = rate === undefined ? NaN : req.amount * rate;
     const base = await this.verifyAgent(agent);
@@ -161,6 +203,7 @@ export class FlowCheck {
     const { hash, uri } = await this.didHash(agent);
     const signed = hash ? await this.loadMandate(hash, uri) : null;
     const m = signed?.mandate ?? null;
+    const usage = usageIn ?? (m ? await this.spent(m.principal, agent) : { today: 0, month: 0 });
 
     if (signed && m) {
       const recomputed = sha256Hex(canonical(m));

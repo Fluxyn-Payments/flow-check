@@ -42,6 +42,8 @@ export type AgentResult = {
   principal: string | null;
   issuer: string | null;
   mandateHash: string | null;
+  /** The agent's XRPL EVM address, when its credential binds one (used for Mastercard AP4M). */
+  evm: string | null;
   checks: Check[];
 };
 

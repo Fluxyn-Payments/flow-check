@@ -5,6 +5,7 @@ import { FlowCheck, type SignedMandate } from '@fluxyn/flow-check';
 import { MONITOR_HTML } from './monitor.js';
 import { directory, PRIOR_ISSUERS, type Issuer } from './directory.js';
 import { bills, runAgent } from './agent.js';
+import { ap4mState, overCapAttempt } from './ap4m.js';
 
 // Network state as written by `pnpm setup:testnet`, plus the published Mandates
 export type State = {
@@ -18,6 +19,7 @@ export type State = {
   rogue: { address: string; seed: string };
   mandateHash: string;
   mandates: Record<string, SignedMandate>;
+  ap4m?: { agentKey: string };
 };
 
 export type Req = { method: string; path: string; body: any; headers: Record<string, string | undefined> };
@@ -103,6 +105,19 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
     if (req.method === 'GET' && parts[1] === 'activity' && parts[2]) return json(200, await events(fc, state, [parts[2]]));
 
     if (req.method === 'GET' && req.path === '/api/bills') return json(200, bills(state));
+    if (req.method === 'GET' && parts[1] === 'mandates' && parts[2] === 'hash' && parts[3]) {
+      const m = state.mandates[parts[3].toUpperCase()];
+      return m ? json(200, m) : json(404, { error: 'unknown mandate' });
+    }
+    if (req.method === 'GET' && req.path === '/api/ap4m') return json(200, await ap4mState(state.ap4m?.agentKey));
+    if (req.method === 'GET' && parts[1] === 'mandate' && parts[2]) {
+      const kya = await fc.verifyAgent(parts[2]);
+      const signed = kya.mandateHash ? state.mandates[kya.mandateHash] ?? null : null;
+      const spent = signed ? await fc.spent(signed.mandate.principal, parts[2]) : null;
+      return json(200, { hash: kya.mandateHash, mandate: signed?.mandate ?? null, spent });
+    }
+
+    if (req.method === 'POST' && req.path === '/api/ap4m/over-cap') return json(200, await overCapAttempt(state.ap4m?.agentKey));
 
     // The agent moves testnet funds: only with the demo token
     if (req.method === 'POST' && req.path === '/api/agent/run') {
@@ -137,7 +152,7 @@ async function scene(fc: FlowCheck, s: State, id: string) {
       const { Delegate, ...tx } = r.pendingTx as Payment & { Delegate?: string };
       const res = await fc.client.submitAndWait(tx as Payment, { wallet: Wallet.fromSeed(s.business.seed), autofill: true });
       const engineResult = (res.result.meta as any)?.TransactionResult;
-      return { ...r, status: engineResult === 'tesSUCCESS' ? 'PAID' : 'FAILED', approvedBy: s.business.address, hash: res.result.hash, engineResult, explorer: fc.txUrl(res.result.hash) };
+      return { ...r, status: engineResult === 'tesSUCCESS' ? 'PAID' : 'FAILED', approval: 'SIMULATED: signed with the business key on the server', approvedBy: s.business.address, hash: res.result.hash, engineResult, explorer: fc.txUrl(res.result.hash) };
     }
     case '3a':
       return fc.payWithPass({ agent, destination: s.vendor.address, amount: 300, ...RLUSD });

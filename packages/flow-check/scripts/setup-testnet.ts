@@ -51,7 +51,7 @@ async function main() {
   await issue(vasp, company, 'KYB_VERIFIED', 'flowcheck:kyb:business', 'business');
   await issue(vasp, supplierA, 'KYB_VERIFIED', 'flowcheck:kyb:supplier-a', 'supplier A');
   await issue(psp, supplierB, 'KYB_BASIC', 'flowcheck:kyb:supplier-b', 'supplier B');
-  await issue(vasp, agent, 'AGENT_AUTHORIZED', `flowcheck:agent:principal:${company.address}`, 'agent');
+  // The agent credential is issued after the Mandate (it expires with it); see below
 
   // Deposit gate on the suppliers: only payers holding a Pass from a network issuer.
   // Each DepositPreauth lists credentials that are required together, so one per accepted issuer.
@@ -85,6 +85,12 @@ async function main() {
   const signature = sign(hash, company.privateKey);
   await mkdir('.flowcheck/mandates', { recursive: true });
   await writeFile(`.flowcheck/mandates/${hash}.json`, JSON.stringify({ mandate, signature, publicKey: company.publicKey }, null, 2));
+  // KYA: the business's issuer attests the agent, bound to the business (and to its XRPL EVM address when known),
+  // expiring with the Mandate. The business anchors the current Mandate on its own account.
+  const evm = process.env.AGENT_EVM && /^0x[0-9a-fA-F]{40}$/.test(process.env.AGENT_EVM) ? `:evm:${process.env.AGENT_EVM}` : '';
+  await submit('agent: CredentialCreate AGENT_AUTHORIZED', { TransactionType: 'CredentialCreate', Account: vasp.address, Subject: agent.address, CredentialType: toHex('AGENT_AUTHORIZED'), Expiration: Math.floor(new Date(mandate.validUntil).getTime() / 1000) - 946684800, URI: toHex(`flowcheck:agent:principal:${company.address}${evm}`) } as any, vasp);
+  await submit('agent: CredentialAccept AGENT_AUTHORIZED', { TransactionType: 'CredentialAccept', Account: agent.address, Issuer: vasp.address, CredentialType: toHex('AGENT_AUTHORIZED') }, agent);
+  await submit('business: DIDSet (current Mandate)', { TransactionType: 'DIDSet', Account: company.address, Data: hash, URI: toHex(`flowcheck:mandate:${hash}`) } as any, company);
   await submit('agent: DIDSet (Mandate hash)', { TransactionType: 'DIDSet', Account: agent.address, Data: hash, URI: toHex(`flowcheck:mandate:${hash}`) } as any, agent);
 
   const w = (x: Wallet) => ({ address: x.address, seed: x.seed });

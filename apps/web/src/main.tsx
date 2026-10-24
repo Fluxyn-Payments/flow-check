@@ -7,6 +7,7 @@ import { Network } from './pages/Network';
 import { Agent } from './pages/Agent';
 import { Workspace } from './pages/Workspace';
 import { Merchant } from './pages/Merchant';
+import { Agents } from './pages/Agents';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -15,6 +16,7 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/" element={<Network />} />
           <Route path="/agents/:address" element={<Agent />} />
+          <Route path="/agents" element={<Agents />} />
           <Route path="/workspace" element={<Workspace />} />
           <Route path="/merchant" element={<Merchant />} />
           <Route path="*" element={<Network />} />

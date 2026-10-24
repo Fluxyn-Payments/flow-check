@@ -20,13 +20,23 @@ if (!kya.authorized) {
   process.exit(1);
 }
 
-// 2 · AP4M on XRPL EVM
+// 2 · AP4M on XRPL EVM, only with the EVM wallet that the agent credential binds
 const { config, provider } = await network();
 const agent = await agentWallet(provider);
+if (kya.evm?.toLowerCase() !== agent.address.toLowerCase()) {
+  console.log(`[Flow Check] ✗ the agent credential binds ${kya.evm ?? 'no EVM wallet'}, not ${agent.address}. Not paying.`);
+  process.exit(1);
+}
+console.log(`[Flow Check] ✓ the agent credential binds this EVM wallet ${agent.address}`);
 const { token } = await sdk.signIn(API, TEAM, agent);
 const me = await (await fetch(`${API}/public/participant/me`, { headers: { Authorization: `Bearer ${token}` } })).json();
 
 let channelId = process.env.CHANNEL_ID ?? (me.paymentState.channel_status === 'open' ? me.paymentState.channel_id : null);
+if (channelId && !process.env.CHANNEL_ID) {
+  // A full channel cannot take another voucher: open a new one from the budget
+  const s = await sdk.getChannelState(provider, config.contracts.paymentLedger, channelId);
+  if (BigInt(s.redeemed) + ethers.parseUnits(MAXIMUM_PRICE, 18) > BigInt(s.cap)) channelId = null;
+}
 if (!channelId) {
   console.log(`[AP4M] opening a Channel to our Merchant with a ${CHANNEL_CAP} RLUSD cap…`);
   const channel = await sdk.requestChannel(API, token, agent, { capRlusd: CHANNEL_CAP, merchantId: me.team.merchant_id, rpcUrl: config.network.rpcUrl });
