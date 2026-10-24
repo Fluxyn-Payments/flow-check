@@ -34,10 +34,16 @@ const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'no'; icon: 
   REFUSED: { label: 'Refused by Flow Check', tone: 'no', icon: CircleSlash },
   REFUSED_BY_LEDGER: { label: 'Refused by the ledger', tone: 'no', icon: XCircle },
   FAILED: { label: 'Failed', tone: 'no', icon: XCircle },
+  ALLOW: { label: 'Can pay on its own', tone: 'ok', icon: Check },
+  NEEDS_APPROVAL: { label: 'Will need your approval', tone: 'warn', icon: Clock },
+  DENY: { label: 'Refused by Flow Check', tone: 'no', icon: CircleSlash },
 };
 
+// Short, plain answers: the cards above already show each bill
+const clean = (s: string) => s.replace(/\*\*/g, '').replace(/^\s*[-•]\s+/gm, '').replace(/\n{2,}/g, '\n').trim();
+
 function Outcome({ o, bill }: { o: PayOutput; bill?: Bill }) {
-  const s = STATUS[o.status ?? ''] ?? { label: o.status ?? '—', tone: 'warn' as const, icon: Clock };
+  const s = STATUS[o.status ?? o.decision ?? ''] ?? { label: o.status ?? o.decision ?? '—', tone: 'warn' as const, icon: Clock };
   const tone = { ok: 'bg-leaf/15 text-leaf', warn: 'bg-sunsoft text-sun', no: 'bg-dangersoft text-danger' }[s.tone];
   return (
     <li className="flex items-start gap-3 py-2.5">
@@ -62,6 +68,7 @@ export function Workspace() {
   const { data: bills } = useApi<Bill[]>('/api/bills');
   const { data: ap4m } = useApi<Ap4m>('/api/ap4m', 30000);
   const [outcomes, setOutcomes] = useState<Record<string, PayOutput>>({});
+  const [checks, setChecks] = useState<Record<string, string>>({});
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
@@ -83,12 +90,17 @@ export function Workspace() {
       const r = await api<AgentRun>('/api/agent/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: text }) });
       const pays = r.steps.filter((s) => s.tool === 'pay_with_pass').map((s) => s.output as PayOutput);
       if (pays.length) setOutcomes((x) => ({ ...x, ...Object.fromEntries(pays.filter((p) => p.bill).map((p) => [p.bill!, p])) }));
+      // Dry-run checks become cards too, unless the same bill was paid in this run
+      const paidIds = new Set(pays.map((p) => p.bill));
+      const checks = r.steps.filter((s) => s.tool === 'check_mandate').map((s) => s.output as PayOutput).filter((c) => c.bill && !paidIds.has(c.bill));
+      if (checks.length) setChecks((x) => ({ ...x, ...Object.fromEntries(checks.map((c) => [c.bill!, c.decision ?? ''])) }));
+      const cards = [...pays, ...checks];
       const checked = r.steps.some((s) => s.tool === 'verify_agent');
       push('agent', (
         <>
           {checked && <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-tealink"><Check className="h-3.5 w-3.5" />Checked its own identity on the ledger first</p>}
-          {pays.length > 0 && <ul className="-my-1 mb-2 divide-y divide-line">{pays.map((p, i) => <Outcome key={i} o={p} bill={billOf(p.bill)} />)}</ul>}
-          <p className="whitespace-pre-wrap">{r.reply}</p>
+          {cards.length > 0 && <ul className="-my-1 mb-2 divide-y divide-line">{cards.map((p, i) => <Outcome key={i} o={p} bill={billOf(p.bill)} />)}</ul>}
+          <p className="whitespace-pre-wrap">{clean(r.reply)}</p>
           <p className="mt-2 font-mono text-[11px] text-muted">{r.model.replace('us.anthropic.', '')} · Amazon Bedrock</p>
         </>
       ));
@@ -102,15 +114,29 @@ export function Workspace() {
 
   const submit = (e: FormEvent) => { e.preventDefault(); void say(input); };
 
+  // The CFO approves everything pending in one atomic Batch on the ledger
   const approve = async () => {
+    const ids = Object.keys(outcomes).filter((k) => outcomes[k].status === 'PENDING_APPROVAL');
+    if (!ids.length) return;
     setBusy('approve');
     try {
-      const r = await api<PayOutput>('/api/demo/2-approve', { method: 'POST' });
-      setOutcomes((x) => ({ ...x, 'INV-1043': r }));
-      push('agent', <><p className="font-semibold">Approved by the CFO (simulated signature).</p><ul className="divide-y divide-line"><Outcome o={r} bill={billOf('INV-1043')} /></ul></>);
+      const r = await api<PayOutput & { bills?: string[]; mode?: string }>('/api/business/approve-batch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agent: net?.agentKey, bills: ids }) });
+      const done = r.bills ?? [];
+      setOutcomes((x) => ({ ...x, ...Object.fromEntries(done.map((id) => [id, { ...r, bill: id, failed: [] }])) }));
+      push('agent', <><p className="font-semibold">Approved in one batch ({r.mode ?? 'all or nothing'}, simulated signature).</p><ul className="divide-y divide-line">{done.map((id) => <Outcome key={id} o={{ ...r, bill: id, failed: [] }} bill={billOf(id)} />)}</ul></>);
       reloadMd();
+    } catch (e) {
+      push('agent', <p className="text-danger">{(e as Error).message}</p>);
     } finally { setBusy(null); }
   };
+
+  // Quick actions from what the agent found
+  const quick: { label: string; run: () => void }[] = [];
+  const paidOrPending = (id: string) => !!outcomes[id];
+  for (const b of bills ?? []) if (checks[b.id] === 'ALLOW' && !paidOrPending(b.id)) quick.push({ label: `Pay ${b.vendor}`, run: () => say(`Pay ${b.id} (${b.vendor}) now.`) });
+  if (net?.canApprove && Object.values(outcomes).some((o) => o.status === 'PENDING_APPROVAL')) quick.push({ label: 'Approve pending · one batch', run: approve });
+  if (!Object.keys(outcomes).length) quick.push({ label: "Pay this month's bills", run: () => say("Pay this month's bills") });
+  quick.push({ label: 'How much budget is left?', run: () => say('How much budget is left this month?') });
 
   const tryBypass = async () => {
     setBusy('bypass');
@@ -162,9 +188,10 @@ export function Workspace() {
             </div>
           )}
           {msgs.length > 0 && !typing && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {SUGGESTIONS.slice(1).map((s) => (
-                <button key={s} type="button" onClick={() => say(s)} className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:border-teal hover:text-tealink">{s}</button>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {quick.slice(0, 4).map((q, i) => (
+                <button key={q.label} type="button" onClick={q.run} disabled={!!busy}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-50 ${i === 0 ? 'bg-teal text-onteal hover:brightness-95' : 'border border-line bg-paper hover:border-teal hover:bg-mint hover:text-tealink'}`}>{busy === 'approve' && q.label.startsWith('Approve') ? 'Signing the batch…' : q.label}</button>
               ))}
             </div>
           )}
@@ -238,8 +265,8 @@ export function Workspace() {
           {pending ? (
             <>
               <p className="mt-2 text-sm"><span className="font-semibold">{pendingBill?.vendor} · {pendingBill?.amount.toLocaleString('en-US')} RLUSD.</span> {outcomes[pendingId!]?.failed?.[0] ?? 'Over the limit.'}</p>
-              {net?.canApprove && pendingId === 'INV-1043'
-                ? <button onClick={approve} disabled={!!busy} className="mt-3 inline-flex h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-paper disabled:opacity-50">{busy === 'approve' ? 'Signing…' : 'Approve (simulated)'}</button>
+              {net?.canApprove
+                ? <button onClick={approve} disabled={!!busy} className="mt-3 inline-flex h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-paper disabled:opacity-50">{busy === 'approve' ? 'Signing the batch…' : 'Approve all · one batch (simulated)'}</button>
                 : <p className="mt-2 text-xs font-semibold text-sun">Sent to the CFO for approval.</p>}
             </>
           ) : <p className="mt-2 text-sm text-muted">Nothing waiting for you.</p>}

@@ -10,6 +10,7 @@ import { allowAgentRun, DEMO_ACCOUNTS, DEMO_PASSWORD, login, roleOf, type Role }
 import { attestAgent, issuerView, revokeAgent } from './issuer.js';
 import { profiles } from './profiles.js';
 import { getKnowledge, putKnowledge } from './knowledge.js';
+import { approveBatch } from './batch.js';
 import { DOCS_HTML, openapi, postmanCollection } from './openapi.js';
 
 // Network state as written by `pnpm setup:testnet`, plus the published Mandates
@@ -157,6 +158,11 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
         if (!can('business')) return json(401, { error: 'only the CFO can change what the agent knows' });
         return json(200, await putKnowledge(k, req.body ?? {}));
       }
+    }
+    if (req.method === 'POST' && req.path === '/api/business/approve-batch') {
+      if (!can('business')) return json(401, { error: 'only the CFO approves' });
+      const key: AgentKey = req.body?.agent === 'marketing' ? 'marketing' : 'payables';
+      return json(200, await approveBatch(fc, state, key, Array.isArray(req.body?.bills) ? req.body.bills.map(String) : []));
     }
     if (req.method === 'GET' && req.path === '/api/business/agents') {
       const keys: AgentKey[] = state.agents?.marketing ? ['payables', 'marketing'] : ['payables'];

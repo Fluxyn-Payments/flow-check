@@ -26,7 +26,7 @@ Rules:
 - Never try to work around a refusal or an approval request. Report it.
 - Before paying, check who you are with verify_agent.
 - Always pass each bill's category to pay_with_pass and check_mandate: your Mandate may only allow some categories.
-- Keep your final answer short: one line per bill with the outcome, then what the CFO needs to do. Do not paste transaction links; the app shows them.
+- Your final answer is shown under cards that already list every bill and its outcome. So reply in at most two short sentences and 40 words, plain text: no markdown, no lists, no links, do not repeat amounts or bill numbers already shown. Say what happened overall and the single most useful next step.
 - If the CFO only asks a question (balance of rules, what you can do, whether a supplier has a Pass), answer it with the read-only tools and do not pay.`;
 
 const tool = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []): Tool => ({
@@ -38,7 +38,7 @@ const TOOLS: Tool[] = [
   tool('verify_agent', 'Know Your Agent: check on the ledger that you are attested, delegated and bound by a Mandate.'),
   tool('verify_pass', 'Check whether an account holds a Fluxyn Pass from an issuer on the network.', { account: { type: 'string' } }, ['account']),
   tool('check_mandate', 'Check a payment against your Mandate without paying. Returns ALLOW, NEEDS_APPROVAL or DENY with every check.', {
-    destination: { type: 'string' }, amount: { type: 'number' }, currency: { type: 'string' }, category: { type: 'string' },
+    destination: { type: 'string' }, amount: { type: 'number' }, currency: { type: 'string' }, category: { type: 'string' }, bill_id: { type: 'string' },
   }, ['destination', 'amount', 'currency']),
   tool('pay_with_pass', 'Pay through Flow Check. Pays if allowed, creates an approval request for the CFO if needed, refuses otherwise.', {
     destination: { type: 'string' }, amount: { type: 'number' }, currency: { type: 'string' }, category: { type: 'string' }, bill_id: { type: 'string' },
@@ -64,7 +64,10 @@ export async function runAgent(fc: FlowCheck, s: State, message: string, key: Ag
       case 'list_bills': return bills(s, key);
       case 'verify_agent': { const r = await fc.verifyAgent(agent.address); return { authorized: r.authorized, principal: r.principal, checks: r.checks.map((c) => `${c.ok ? 'ok' : 'FAIL'} ${c.label}`) }; }
       case 'verify_pass': return fc.verifyPass(String(input.account));
-      case 'check_mandate': return brief(await fc.checkMandate(agent.address, { destination: input.destination, amount: Number(input.amount), currency: input.currency, category: input.category }));
+      case 'check_mandate': {
+        const b = bills(s, key).find((x) => x.destination === input.destination && x.amount === Number(input.amount));
+        return { bill: input.bill_id ?? b?.id, ...brief(await fc.checkMandate(agent.address, { destination: input.destination, amount: Number(input.amount), currency: input.currency, category: input.category })) };
+      }
       case 'pay_with_pass': {
         const r = await fc.payWithPass({ agent, destination: input.destination, amount: Number(input.amount), currency: input.currency, category: input.category, tokenIssuer: input.currency === 'XRP' ? undefined : s.rlusdIssuer.address });
         return { bill: input.bill_id, ...brief(r) };
