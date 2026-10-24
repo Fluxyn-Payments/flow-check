@@ -1,0 +1,11 @@
+{
+  "name": "@fluxyn/rail-ap4m",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mastercard Agent Pay for Machines (hackathon kit) on XRPL EVM, gated by Flow Check",
+  "dependencies": {
+    "@ap4m/sdk": "file:vendor/ap4m-sdk.tgz",
+    "ethers": "6.17.0"
+  }
+}
