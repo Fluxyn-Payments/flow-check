@@ -4,6 +4,7 @@ import { ArrowUp, Check, CircleSlash, Clock, ExternalLink, Loader2, ShieldAlert,
 import { api, useApi, type AgentResult } from '../api';
 import { Pill } from '../components/ui';
 import { getSession } from '../session';
+import { approveOnLedger, ledgerSupported } from '../ledger';
 
 type Bill = { id: string; vendor: string; destination: string; amount: number; currency: string; category: string };
 type Step = { tool: string; input: Record<string, unknown>; output: Record<string, unknown> };
@@ -129,6 +130,22 @@ export function Workspace() {
     } catch (e) {
       push('agent', <p className="text-danger">{(e as Error).message}</p>);
     } finally { setBusy(null); }
+  };
+
+  // The CFO signs each pending payment on a Ledger device
+  const [ledgerStep, setLedgerStep] = useState<string | null>(null);
+  const approveLedger = async () => {
+    const ids = Object.keys(outcomes).filter((k) => outcomes[k].status === 'PENDING_APPROVAL' && !outcomes[k].rail);
+    if (!ids.length) return;
+    setBusy('ledger');
+    try {
+      const results = await approveOnLedger(net?.agentKey, ids, setLedgerStep);
+      setOutcomes((x) => ({ ...x, ...Object.fromEntries(results.map((o) => [o.bill, { ...o, failed: o.error ? [o.error] : [] }])) }));
+      push('agent', <><p className="font-semibold">Signed on your Ledger.</p><ul className="divide-y divide-line">{results.map((o) => <Outcome key={o.bill} o={{ ...o, failed: o.error ? [o.error] : [] }} bill={billOf(o.bill)} />)}</ul></>);
+      reloadMd();
+    } catch (e) {
+      push('agent', <p className="text-danger">Ledger: {(e as Error).message}</p>);
+    } finally { setBusy(null); setLedgerStep(null); }
   };
 
   // Quick actions from what the agent found
@@ -267,11 +284,15 @@ export function Workspace() {
             <>
               <p className="mt-2 text-sm"><span className="font-semibold">{pendingBill?.vendor} · {pendingBill?.amount.toLocaleString('en-US')} RLUSD.</span> {outcomes[pendingId!]?.failed?.[0] ?? 'Over the limit.'}</p>
               {net?.canApprove
-                ? <button onClick={approve} disabled={!!busy} className="mt-3 inline-flex h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-paper disabled:opacity-50">{busy === 'approve' ? 'Signing the batch…' : 'Approve all · one batch (simulated)'}</button>
+                ? <div className="mt-3 flex flex-wrap gap-2">
+                    {ledgerSupported() && <button onClick={approveLedger} disabled={!!busy} className="inline-flex h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-paper disabled:opacity-50">{busy === 'ledger' ? 'Waiting for the Ledger…' : 'Approve on Ledger'}</button>}
+                    <button onClick={approve} disabled={!!busy} className="inline-flex h-10 items-center rounded-full border border-line bg-paper px-4 text-sm font-semibold disabled:opacity-50">{busy === 'approve' ? 'Signing the batch…' : 'Approve all · batch (simulated)'}</button>
+                  </div>
                 : <p className="mt-2 text-xs font-semibold text-sun">Sent to the CFO for approval.</p>}
             </>
           ) : <p className="mt-2 text-sm text-muted">Nothing waiting for you.</p>}
-          <p className="mt-3 text-xs text-muted"><Pill tone="warn">simulated approval</Pill> In production the CFO signs on a Ledger.</p>
+          {ledgerStep && <p className="mt-3 flex items-center gap-2 text-sm font-semibold"><Loader2 className="h-4 w-4 animate-spin" />{ledgerStep}</p>}
+          <p className="mt-3 text-xs text-muted">Ledger: signed on the device. Batch: <Pill tone="warn">simulated</Pill> server signature.</p>
         </section>
 
         <section className="rounded-2xl border border-line bg-surface p-5">
