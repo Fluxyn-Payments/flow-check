@@ -1,6 +1,6 @@
-import { StrictMode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './styles.css';
 import { Shell } from './components/Shell';
 import { Network } from './pages/Network';
@@ -8,20 +8,38 @@ import { Agent } from './pages/Agent';
 import { Workspace } from './pages/Workspace';
 import { Merchant } from './pages/Merchant';
 import { Agents } from './pages/Agents';
+import { Issuer } from './pages/Issuer';
+import { SignIn } from './pages/SignIn';
+import { Access } from './pages/Access';
+import { getSession, HOME } from './session';
+
+// Light mode everywhere, like the Fluxyn app
+document.documentElement.dataset.theme = 'light';
+
+function Private({ children }: { children: ReactNode }) {
+  return getSession() ? <Shell>{children}</Shell> : <Navigate to="/signin" replace />;
+}
+
+function Home() {
+  const s = getSession();
+  if (!s) return <Navigate to="/signin" replace />;
+  return s.role === 'network' ? <Shell><Network /></Shell> : <Navigate to={HOME[s.role]} replace />;
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <Shell>
-        <Routes>
-          <Route path="/" element={<Network />} />
-          <Route path="/agents/:address" element={<Agent />} />
-          <Route path="/agents" element={<Agents />} />
-          <Route path="/workspace" element={<Workspace />} />
-          <Route path="/merchant" element={<Merchant />} />
-          <Route path="*" element={<Network />} />
-        </Routes>
-      </Shell>
+      <Routes>
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/agents" element={<Private><Agents /></Private>} />
+        <Route path="/agents/:address" element={<Private><Agent /></Private>} />
+        <Route path="/workspace" element={<Private><Workspace /></Private>} />
+        <Route path="/merchant" element={<Private><Merchant /></Private>} />
+        <Route path="/issuer" element={<Private><Issuer /></Private>} />
+        <Route path="/access" element={<Private><Access /></Private>} />
+        <Route path="*" element={<Home />} />
+      </Routes>
     </BrowserRouter>
   </StrictMode>,
 );

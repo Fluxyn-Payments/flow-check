@@ -12,6 +12,7 @@ const STATUS: Record<AgentEntry['status'], { tone: 'ok' | 'warn' | 'no'; label: 
 export function Network() {
   const { data, error } = useApi<Directory>('/api/directory', 15000);
   const issuerName = (a: string | null) => data?.issuers.find((i) => i.address === a)?.name ?? short(a);
+  const profile = (a: string | null) => (a ? data?.profiles?.[a] : undefined);
 
   return (
     <div className="space-y-6">
@@ -53,9 +54,19 @@ export function Network() {
                     const s = STATUS[a.status];
                     return (
                       <tr key={a.address} className="hover:bg-sunken/60">
-                        <td className="px-5 py-3"><Addr value={a.address} /></td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{profile(a.address)?.name ?? 'Unnamed agent'}</span>
+                            {profile(a.address)?.tag && <Pill tone="teal">{profile(a.address)!.tag}</Pill>}
+                          </div>
+                          {profile(a.address)?.description && <div className="mt-0.5 max-w-xs text-[12.5px] leading-snug text-muted">{profile(a.address)!.description}</div>}
+                          <div className="mt-0.5"><Addr value={a.address} /></div>
+                        </td>
                         <td className="px-3 py-3"><span title={s.hint}><Pill tone={s.tone}>{s.label}</Pill></span></td>
-                        <td className="px-3 py-3"><Addr value={a.principal} /></td>
+                        <td className="px-3 py-3">
+                          <div className="font-semibold">{profile(a.principal)?.name ?? '—'}</div>
+                          <Addr value={a.principal} />
+                        </td>
                         <td className="px-3 py-3">{a.issuer ? issuerName(a.issuer) : <span className="text-muted">—</span>}</td>
                         <td className="px-3 py-3">{a.delegated ? <Pill tone="ok">Payment</Pill> : <Pill tone="no">none</Pill>}</td>
                         <td className="px-3 py-3">{a.mandate ? <Pill tone="ok">anchored</Pill> : <Pill tone="no">none</Pill>}</td>
@@ -99,8 +110,8 @@ export function Network() {
                 {data.businesses.map((b) => (
                   <li key={b.address} className="flex items-center justify-between gap-3 py-3">
                     <div className="min-w-0">
-                      <Addr value={b.address} />
-                      <div className="text-[13px] text-muted">by {issuerName(b.issuer)}</div>
+                      <div className="font-semibold">{profile(b.address)?.name ?? 'Unnamed business'}</div>
+                      <div className="text-[13px] text-muted"><Addr value={b.address} /> · by {issuerName(b.issuer)}</div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <Pill tone={b.tier === 'KYB_VERIFIED' ? 'ok' : 'teal'}>{b.tier === 'KYB_VERIFIED' ? 'Pass Full' : 'Pass Basic'}</Pill>

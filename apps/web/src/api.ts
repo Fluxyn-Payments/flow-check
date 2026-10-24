@@ -1,3 +1,4 @@
+import { getSession } from './session';
 import { useEffect, useState } from 'react';
 
 export type Check = { id: string; label: string; ok: boolean; effect: 'DENY' | 'APPROVAL'; detail: string };
@@ -12,14 +13,19 @@ export type Directory = {
   businesses: { address: string; issuer: string; tier: string; agents: string[] }[];
   agents: AgentEntry[];
   counts: { issuers: number; businesses: number; agents: number; attested: number };
+  profiles?: Record<string, Profile>;
 };
+export type Profile = { name: string; kind: 'business' | 'agent'; tag?: string; description: string; source: 'nyc' | 'prior' };
 export type AgentResult = { authorized: boolean; agent: string; principal: string | null; issuer: string | null; mandateHash: string | null; checks: Check[] };
 export type LedgerEvent = { hash: string; type: string; from: string; via: string | null; to: string | null; amount: string | null; result: string; date: string | null; explorer: string };
 
 export const explorerAccount = (a: string) => `https://testnet.xrpl.org/accounts/${a}`;
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(path, init);
+  const session = getSession();
+  const headers = new Headers(init?.headers);
+  if (session) headers.set('authorization', `Bearer ${session.token}`);
+  const r = await fetch(path, { ...init, headers });
   const body = await r.json();
   if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`);
   return body as T;
