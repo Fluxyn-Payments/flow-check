@@ -107,6 +107,30 @@ export const openapi = {
         responses: { 200: json({ model: 'us.anthropic.claude-sonnet-5-5', reply: 'INV-1042 paid; INV-1043 needs approval; INV-1044 refused.', steps: [{ tool: 'pay_with_pass', input: { destination: SUPPLIER, amount: 1200, currency: 'RLUSD' }, output: { decision: 'ALLOW', status: 'PAID', engineResult: 'tesSUCCESS', explorer: TX } }] }), 401: unauthorized, 429: json({ error: 'the demo agent is busy, try again in a few minutes' }, 'Rate limited') },
       },
     },
+    '/api/v1/agent/run': {
+      post: {
+        tags: ['Agent'], summary: 'Your ERP asks the agent with its key (Bearer fca_…). The CFO can turn API access off per agent', security: [{ bearer: [] }],
+        requestBody: body({ message: 'Which bills are due, and pay the ones you can.' }),
+        responses: { 200: json({ model: 'us.anthropic.claude-sonnet-5-5', reply: 'Two bills paid, one waits for the CFO.', steps: [] }), 401: unauthorized, 403: json({ error: 'The CFO turned off API access for this agent.' }, 'Channel off') },
+      },
+    },
+    '/api/agents/{agentKey}/mandate': {
+      put: { tags: ['Business'], summary: 'Publish a new Mandate version (CFO): signed by the business, anchored on the agent DID and in the Mandate set', ...auth('business'),
+        parameters: [{ name: 'agentKey', in: 'path', required: true, schema: { type: 'string', enum: ['payables', 'marketing'] } }],
+        requestBody: body({ perPayment: 2500, daily: 5000, monthly: 10000, quarterly: 25000, categories: ['ads', 'design', 'events'] }),
+        responses: { 200: json({ version: 3, hash: '9983…', txs: [{ label: 'Agent DID → new Mandate', engineResult: 'tesSUCCESS', explorer: TX }] }), 401: unauthorized } },
+    },
+    '/api/agents/{agentKey}/delegation': {
+      post: { tags: ['Business'], summary: 'Pause or restore the agent (DelegateSet, XLS-75)', ...auth('business'),
+        parameters: [{ name: 'agentKey', in: 'path', required: true, schema: { type: 'string', enum: ['payables', 'marketing'] } }],
+        requestBody: body({ enabled: false }), responses: { 200: json({ enabled: false, engineResult: 'tesSUCCESS', explorer: TX }), 401: unauthorized } },
+    },
+    '/api/agents/{agentKey}/config': {
+      put: { tags: ['Business'], summary: 'Rails and channels the agent may use (enforced by the API)', ...auth('business'),
+        parameters: [{ name: 'agentKey', in: 'path', required: true, schema: { type: 'string', enum: ['payables', 'marketing'] } }],
+        requestBody: body({ rails: { xrpl: true, ap4m: true, ripple: false }, channels: { mcp: true, widget: true, api: true } }),
+        responses: { 200: json({ rails: { xrpl: true, ap4m: true, ripple: false }, channels: { mcp: true, widget: true, api: true } }), 401: unauthorized } },
+    },
     '/api/demo/{scene}': {
       post: {
         tags: ['Agent'], summary: 'Run a demo scene on testnet', ...auth('business'),

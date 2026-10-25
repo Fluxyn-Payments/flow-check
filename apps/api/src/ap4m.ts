@@ -72,3 +72,36 @@ export async function overCapAttempt(agentKey: string | undefined) {
     refused, reason, note: 'Dry run against the PaymentLedger (eth_call): nothing was sent.',
   };
 }
+
+// A real AP4M payment from the agent's funded channel: the agent signs a cumulative Voucher (EIP-712) and redeems
+// it on the PaymentLedger. The contract refuses anything above the channel cap. Called only after Flow Check.
+export async function payViaAp4m(agentKey: string | undefined, amountRlusd: number) {
+  if (!agentKey) throw new Error('Mastercard AP4M is not configured');
+  const { JsonRpcProvider, Contract, parseUnits, formatUnits } = await import('ethers');
+  const config = await fetch(`${API}/public/config`).then((r) => r.json());
+  const provider = new JsonRpcProvider(config.network.rpcUrl);
+  const wallet = new Wallet(agentKey.startsWith('0x') ? agentKey : `0x${agentKey}`, provider);
+  const state: any = await ap4mState(agentKey);
+  const channelId = state.channel?.id;
+  if (!channelId || state.channel.status !== 'open') throw new Error('no open AP4M channel');
+  const ledger = new Contract(config.contracts.paymentLedger, [
+    'function redeemVoucher((bytes32 channelId, uint256 cumulativeAmount) voucher, bytes agentSignature) returns (bytes32 claimId, uint256 amount, bytes32 digest)',
+    'function channels(bytes32) view returns (bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,uint64,uint8,address,uint64,address,uint64,uint64,uint64)',
+  ], wallet);
+  const ch = await ledger.channels(channelId);
+  const cap = ch[7] as bigint;
+  const cumulative = (ch[8] as bigint) + parseUnits(String(amountRlusd), 18);
+  if (cumulative > cap) return { status: 'REFUSED', failed: [`Channel cap: ${formatUnits(cumulative, 18)} of ${formatUnits(cap, 18)} RLUSD`] };
+  const { chainId } = await provider.getNetwork();
+  const signature = await wallet.signTypedData(
+    { name: 'AP4M Payment Ledger', version: '1', chainId, verifyingContract: config.contracts.paymentLedger },
+    { Voucher: [{ name: 'channelId', type: 'bytes32' }, { name: 'cumulativeAmount', type: 'uint256' }] },
+    { channelId, cumulativeAmount: cumulative },
+  );
+  const tx = await ledger.redeemVoucher({ channelId, cumulativeAmount: cumulative }, signature);
+  const receipt = await tx.wait();
+  return {
+    status: receipt?.status === 1 ? 'PAID' : 'FAILED', rail: 'Mastercard Agent Pay', engineResult: 'VoucherRedeemed',
+    explorer: `${config.network.explorerUrl}/tx/${tx.hash}`, channel: { id: channelId, paid: formatUnits(cumulative, 18), cap: formatUnits(cap, 18) },
+  };
+}

@@ -5,6 +5,7 @@ import type { State } from './app.js';
 import { contextPrompt, getKnowledge } from './knowledge.js';
 import { payoutViaRipple, type FiatBeneficiary } from './ripple.js';
 import { getAgentConfig } from './business.js';
+import { payViaAp4m } from './ap4m.js';
 
 const MODEL = process.env.AGENT_MODEL ?? 'us.anthropic.claude-sonnet-5-5';
 const MAX_TURNS = 12;
@@ -20,6 +21,7 @@ export const bills = (s: State, key: AgentKey = 'payables') => key === 'marketin
   { id: 'INV-1042', vendor: 'Stratus Cloud LLC', destination: s.suppliers.a.address, amount: 1200, currency: 'RLUSD', category: 'cloud' },
   { id: 'INV-1043', vendor: 'Atelier Norte Studio', destination: s.suppliers.b.address, amount: 6000, currency: 'RLUSD', category: 'design' },
   { id: 'INV-1044', vendor: 'New vendor (unverified)', destination: s.vendor.address, amount: 300, currency: 'RLUSD', category: 'services' },
+  { id: 'INV-1046', vendor: 'Flow Check network report (Mastercard merchant)', destination: 'mastercard:flowcheck-reports', amount: 1, currency: 'RLUSD', category: 'data', rail: 'ap4m' as const },
   ...(s.suppliers.mx ? [{ id: 'INV-1045', vendor: 'Estudio Bruma SA de CV (Mexico)', destination: s.suppliers.mx.address, amount: 2500, currency: 'USD', category: 'design', rail: 'ripple' as const }] : []),
 ];
 
@@ -67,6 +69,18 @@ const brief = (r: any) => ({
   failed: (r.checks ?? []).filter((c: any) => !c.ok).map((c: any) => `${c.label}: ${c.detail}`),
 });
 
+// Flow Check before a Mastercard AP4M payment: the agent is attested and bound to the EVM wallet that pays,
+// and the amount and category fit its Mandate. The channel cap is then enforced by the AP4M contract.
+async function ap4mGate(fc: FlowCheck, s: State, agent: string, amount: number, category?: string) {
+  const kya = await fc.verifyAgent(agent);
+  const failed = kya.checks.filter((c) => !c.ok).map((c) => `${c.label}: ${c.detail}`);
+  if (!kya.evm) failed.push('EVM binding: the agent has no EVM wallet bound to its credential');
+  const mandate = kya.mandateHash ? s.mandates[kya.mandateHash]?.mandate : null;
+  if (mandate && amount > mandate.limits.perPayment) failed.push(`Per-payment limit: USD ${amount} of USD ${mandate.limits.perPayment}`);
+  if (mandate?.categories && category && !mandate.categories.includes(category)) failed.push(`Category allowed: ${category} is not one of ${mandate.categories.join(', ')}`);
+  return failed;
+}
+
 // The agent's tools, shared by the web chat and the agent's own MCP server
 export function agentExec(fc: FlowCheck, s: State, key: AgentKey) {
   const agent = Wallet.fromSeed(agentOf(s, key).seed);
@@ -85,14 +99,24 @@ export function agentExec(fc: FlowCheck, s: State, key: AgentKey) {
       case 'verify_pass': return fc.verifyPass(String(input.account));
       case 'check_mandate': {
         const b = bills(s, key).find((x) => x.destination === input.destination && x.amount === Number(input.amount));
+        if ((b as { rail?: string } | undefined)?.rail === 'ap4m') {
+          const gate = await ap4mGate(fc, s, agent.address, Number(input.amount), input.category);
+          return { bill: b!.id, rail: 'Mastercard Agent Pay', decision: gate.length ? 'DENY' : 'ALLOW', failed: gate };
+        }
         return { bill: input.bill_id ?? b?.id, ...brief(await fc.checkMandate(agent.address, { destination: input.destination, amount: Number(input.amount), currency: input.currency, category: input.category })) };
       }
       case 'pay_with_pass': {
         const bill = bills(s, key).find((x) => x.destination === input.destination && x.amount === Number(input.amount)) as { id: string; rail?: string } | undefined;
         // The CFO chooses which rails each agent may use
         const rails = (await getAgentConfig(key)).rails;
-        const rail = bill?.rail === 'ripple' ? 'ripple' : 'xrpl';
-        if (!rails[rail]) return { bill: bill?.id ?? input.bill_id, decision: 'DENY', status: 'REFUSED', failed: [`Rail: ${rail === 'ripple' ? 'Ripple Payments Direct' : 'XRP Ledger'} is turned off for this agent by the CFO`] };
+        const rail = bill?.rail === 'ripple' ? 'ripple' : bill?.rail === 'ap4m' ? 'ap4m' : 'xrpl';
+        const RAIL = { xrpl: 'XRP Ledger', ripple: 'Ripple Payments Direct', ap4m: 'Mastercard Agent Pay' };
+        if (!rails[rail]) return { bill: bill?.id ?? input.bill_id, decision: 'DENY', status: 'REFUSED', rail: RAIL[rail], failed: [`Rail: ${RAIL[rail]} is turned off for this agent by the CFO`] };
+        if (bill?.rail === 'ap4m') {
+          const gate = await ap4mGate(fc, s, agent.address, Number(input.amount), input.category);
+          if (gate.length) return { bill: bill.id, decision: 'DENY', status: 'REFUSED', rail: RAIL.ap4m, failed: gate };
+          return { bill: bill.id, decision: 'ALLOW', ...(await payViaAp4m(s.ap4m?.agentKey, Number(input.amount))) };
+        }
         if (bill?.rail === 'ripple') {
           // Same Flow Check first; only then the cross-border payout
           const check = await fc.checkMandate(agent.address, { destination: input.destination, amount: Number(input.amount), currency: 'USD', category: input.category });
