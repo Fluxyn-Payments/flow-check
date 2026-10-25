@@ -121,7 +121,6 @@ export function Access() {
           <Card title="Code and prior work" icon={FolderGit2Icon}>
             <ul className="divide-y divide-line">
               <Row label="Public repo"><Ext href="https://github.com/Fluxyn-Payments/flow-check">Fluxyn-Payments/flow-check</Ext></Row>
-              <Row label="Internal repo (private)"><Ext href="https://github.com/Fluxyn-Payments/flow-check-internal">Fluxyn-Payments/flow-check-internal</Ext></Row>
               <Row label="Fluxyn business app (prior work)"><Ext href="https://xrplcommons.fluxyn.com">xrplcommons.fluxyn.com</Ext></Row>
             </ul>
           </Card>
