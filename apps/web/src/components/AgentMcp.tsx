@@ -25,9 +25,9 @@ export function AgentMcp({ agent }: { agent: 'payables' | 'marketing' }) {
   return (
     <div className="mt-5 rounded-xl border border-line bg-paper p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-2 text-sm font-semibold"><Plug className="h-4 w-4 text-tealink" />Agent MCP {active ? <Pill tone="ok">connected</Pill> : active === false && <Pill tone="neutral">no key</Pill>}</span>
+        <span className="inline-flex items-center gap-2 text-sm font-semibold"><Plug className="h-4 w-4 text-tealink" />Agent MCP · widget {active ? <Pill tone="ok">connected</Pill> : active === false && <Pill tone="neutral">no key</Pill>}</span>
         <span className="flex gap-2">
-          <button onClick={() => call('POST')} disabled={busy} className="rounded-full bg-teal px-3 py-1 text-xs font-semibold text-onteal disabled:opacity-50">{active ? 'New key' : 'Connect to Claude'}</button>
+          <button onClick={() => call('POST')} disabled={busy} className="rounded-full bg-teal px-3 py-1 text-xs font-semibold text-onteal disabled:opacity-50">{active ? 'New key' : 'Connect · MCP & widget'}</button>
           {active && <button onClick={() => call('DELETE')} disabled={busy} className="rounded-full border border-line px-3 py-1 text-xs font-semibold hover:text-danger disabled:opacity-50">Revoke</button>}
         </span>
       </div>
@@ -36,6 +36,8 @@ export function AgentMcp({ agent }: { agent: 'payables' | 'marketing' }) {
           <p className="text-muted">Shown once. Anyone with this URL acts as this agent, always inside its Mandate. A new key revokes the previous one.</p>
           <Snippet label="URL · claude.ai or ChatGPT connector" text={url} copied={copied} onCopy={copy} />
           <Snippet label="Claude Desktop · claude_desktop_config.json" text={desktop} copied={copied} onCopy={copy} />
+          <Snippet label="Widget · paste in any web page" text={`<script src="${new URL(url).origin}/widget.js" data-key="${url.split('/mcp/')[1]}" async></script>`} copied={copied} onCopy={copy} />
+          <a href={`/embed-demo.html?key=${url.split('/mcp/')[1]}`} target="_blank" rel="noopener" className="inline-block font-semibold text-tealink hover:underline">Open the widget in a demo VASP's online banking ↗</a>
         </div>
       )}
     </div>

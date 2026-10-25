@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo VASP · Business banking (widget demo)</title>
+  <style>
+    :root { --ink: #1B2333; --muted: #6B7385; --line: #E4E7EE; --brand: #3B4BD8; --bg: #F6F7FB; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+    .banner { background: #FFF6DB; color: #7A5600; font-size: 12.5px; text-align: center; padding: 7px 16px; }
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 32px; background: #fff; border-bottom: 1px solid var(--line); }
+    .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -.01em; }
+    .logo b { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--brand); color: #fff; font-size: 14px; }
+    .links { display: flex; gap: 22px; font-size: 14px; color: var(--muted); }
+    .links .on { color: var(--ink); font-weight: 700; }
+    main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 120px; }
+    h1 { margin: 0; font-size: 28px; }
+    .lead { margin: 6px 0 24px; color: var(--muted); }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+    .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .v { margin-top: 6px; font-size: 24px; font-weight: 800; }
+    table { width: 100%; margin-top: 24px; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 14px; }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; background: #FAFBFD; }
+    .tag { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #EEF0FB; color: var(--brand); font-weight: 700; }
+    .note { margin-top: 18px; font-size: 13px; color: var(--muted); }
+    .nokey { margin-top: 24px; padding: 16px; border-radius: 12px; background: #fff; border: 1px dashed #C9CEDA; font-size: 14px; }
+    @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } .links { display: none; } nav { padding: 14px 16px; } }
+  </style>
+</head>
+<body>
+  <div class="banner">Demo host page: a fictional VASP's online banking, embedding the Fluxyn Flow Check widget. XRPL testnet, no real funds.</div>
+  <nav>
+    <span class="logo"><b>DV</b>Demo VASP · Business</span>
+    <span class="links"><span>Accounts</span><span class="on">Payables</span><span>Cards</span><span>Statements</span></span>
+    <span style="font-size:14px;color:var(--muted)">Lumen Robotics Inc.</span>
+  </nav>
+  <main>
+    <h1>Payables</h1>
+    <p class="lead">Your AI agent pays these bills inside the Mandate you signed. Open it from the button at the bottom right.</p>
+    <div class="cards">
+      <div class="card"><div class="k">RLUSD balance</div><div class="v">48,200.00</div></div>
+      <div class="card"><div class="k">Bills this month</div><div class="v">4</div></div>
+      <div class="card"><div class="k">Your verification</div><div class="v" style="font-size:16px;margin-top:12px"><span class="tag">Fluxyn Pass · KYB verified</span></div></div>
+    </div>
+    <table>
+      <thead><tr><th>Invoice</th><th>Supplier</th><th>Category</th><th style="text-align:right">Amount</th></tr></thead>
+      <tbody>
+        <tr><td>INV-1042</td><td>Stratus Cloud LLC</td><td>cloud</td><td style="text-align:right">1,200 RLUSD</td></tr>
+        <tr><td>INV-1043</td><td>Atelier Norte Studio</td><td>design</td><td style="text-align:right">6,000 RLUSD</td></tr>
+        <tr><td>INV-1044</td><td>New vendor (unverified)</td><td>services</td><td style="text-align:right">300 RLUSD</td></tr>
+        <tr><td>INV-1045</td><td>Estudio Bruma SA de CV (Mexico)</td><td>design</td><td style="text-align:right">2,500 USD → MXN</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Embedded with one line: <code>&lt;script src="https://flowcheck.fluxyn.com/widget.js" data-key="fca_…"&gt;&lt;/script&gt;</code></p>
+    <div class="nokey" id="nokey" hidden>Add <code>?key=fca_…</code> to this page's URL with an agent key from <b>Agents and budgets → Agent MCP</b>.</div>
+  </main>
+  <script>
+    // The demo reads the agent key from the URL so it is never stored in the page
+    const key = new URLSearchParams(location.search).get('key');
+    if (!key) document.getElementById('nokey').hidden = false;
+    else {
+      const s = document.createElement('script');
+      s.src = '/widget.js'; s.dataset.key = key; s.dataset.open = 'true';
+      document.body.appendChild(s);
+    }
+  </script>
+</body>
+</html>

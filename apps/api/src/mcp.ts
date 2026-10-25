@@ -32,7 +32,7 @@ export async function agentKeyStatus(agent: AgentKey) {
   return { active: !!(await currentKid(agent)) };
 }
 
-async function agentFromKey(token: string, secret: string): Promise<AgentKey | null> {
+export async function agentFromKey(token: string, secret: string): Promise<AgentKey | null> {
   const [payload, mac] = token.replace(/^fca_/, '').split('.');
   if (!payload || !mac) return null;
   const expected = sign(payload, secret);

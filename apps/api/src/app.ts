@@ -12,7 +12,7 @@ import { profiles } from './profiles.js';
 import { getKnowledge, putKnowledge } from './knowledge.js';
 import { approveBatch } from './batch.js';
 import { prepareLedgerApproval, submitLedgerApproval } from './ledger.js';
-import { agentKeyStatus, handleMcp, issueAgentKey } from './mcp.js';
+import { agentFromKey, agentKeyStatus, handleMcp, issueAgentKey } from './mcp.js';
 import { DOCS_HTML, openapi, postmanCollection } from './openapi.js';
 
 // Network state as written by `pnpm setup:testnet`, plus the published Mandates
@@ -121,6 +121,23 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
       if (!key) return json(503, { error: 'not configured' });
       const r = await handleMcp(fc, state, parts[1], key, req.body);
       return r.body === null ? { status: r.status, body: '', headers: {} } : json(r.status, r.body);
+    }
+    // Embeddable widget: a host platform (ERP, the PSP's online banking) shows the agent with the same key as its MCP.
+    // Open to any origin; requests are sent as text/plain so the browser needs no preflight.
+    if (parts[0] === 'api' && parts[1] === 'widget' && parts[2]) {
+      const cors = (r: Res): Res => ({ ...r, headers: { ...r.headers, 'access-control-allow-origin': '*' } });
+      const agent = key ? await agentFromKey(parts[2], key) : null;
+      if (!agent) return cors(json(401, { error: 'This agent key was revoked or is not valid.' }));
+      const a = agentOf(state, agent);
+      if (req.method === 'GET' && parts[3] === 'summary') {
+        const kya = await fc.verifyAgent(a.address);
+        const signed = kya.mandateHash ? state.mandates[kya.mandateHash] : null;
+        return cors(json(200, { agent, address: a.address, authorized: kya.authorized, business: 'Lumen Robotics Inc.', mandate: signed?.mandate ?? null, spent: signed ? await fc.spent(signed.mandate.principal, a.address) : null, bills: bills(state, agent) }));
+      }
+      if (req.method === 'POST' && parts[3] === 'chat') {
+        if (!allowAgentRun()) return cors(json(429, { error: 'The agent is busy, try again in a few minutes.' }));
+        return cors(json(200, await runAgent(fc, state, String(req.body?.message ?? '').slice(0, 2000) || "Pay this month's bills.", agent)));
+      }
     }
     if (parts[0] === 'api' && parts[1] === 'agents' && parts[3] === 'mcp-key') {
       const k: AgentKey = parts[2] === 'marketing' ? 'marketing' : 'payables';
