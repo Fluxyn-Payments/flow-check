@@ -1,4 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { Building2 as Building2Icon, FileText as FileTextIcon, NotebookPen as NotebookPenIcon } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText, Plus, Trash2, Upload } from 'lucide-react';
 import { api } from '../api';
@@ -62,13 +63,13 @@ export function AgentSettings() {
 
       {k && (
         <>
-          <Card title="Instructions" action={k.updatedAt && <span className="text-xs text-muted">updated {k.updatedAt.slice(0, 16).replace('T', ' ')}</span>}>
+          <Card title="Instructions" icon={NotebookPenIcon} action={k.updatedAt && <span className="text-xs text-muted">updated {k.updatedAt.slice(0, 16).replace('T', ' ')}</span>}>
             <textarea value={k.instructions} onChange={(e) => setK({ ...k, instructions: e.target.value })} rows={5} maxLength={4000} className={input}
               placeholder="How should this agent work? For example: pay the cloud bill on the 5th, never split invoices, tell the team how much budget is left." />
             <p className="mt-2 text-xs text-muted">Written in plain language. The agent follows it inside its Mandate.</p>
           </Card>
 
-          <Card title="Known suppliers" action={
+          <Card title="Known suppliers" icon={Building2Icon} action={
             <div className="flex items-center gap-2">
               <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs font-semibold hover:bg-sunken">
                 <Upload className="h-3.5 w-3.5" />Import CSV
@@ -97,7 +98,7 @@ export function AgentSettings() {
             <p className="mt-3 text-xs text-muted">CSV columns: name, account, category, notes. A supplier still needs a Pass to be paid.</p>
           </Card>
 
-          <Card title="Reference documents" action={
+          <Card title="Reference documents" icon={FileTextIcon} action={
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs font-semibold hover:bg-sunken">
               <Upload className="h-3.5 w-3.5" />Upload .txt, .md or .csv
               <input type="file" accept=".txt,.md,.csv,text/plain,text/markdown,text/csv" className="hidden" onChange={(e) => readFile(e, (name, t) => setK({ ...k, documents: [...k.documents, { title: name, text: t }] }))} />

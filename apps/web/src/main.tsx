@@ -8,6 +8,9 @@ import { Agent } from './pages/Agent';
 import { Workspace } from './pages/Workspace';
 import { Merchant } from './pages/Merchant';
 import { Agents } from './pages/Agents';
+import { AgentManage } from './pages/AgentManage';
+import { Team } from './pages/Team';
+import { Integrations } from './pages/Integrations';
 import { Issuer } from './pages/Issuer';
 import { SignIn } from './pages/SignIn';
 import { Access } from './pages/Access';
@@ -36,6 +39,9 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/agents" element={<Private><Agents /></Private>} />
         <Route path="/agents/:address" element={<Private><Agent /></Private>} />
         <Route path="/agents/:agentKey/train" element={<Private><AgentSettings /></Private>} />
+        <Route path="/agents/:agentKey/manage" element={<Private><AgentManage /></Private>} />
+        <Route path="/team" element={<Private><Team /></Private>} />
+        <Route path="/integrations" element={<Private><Integrations /></Private>} />
         <Route path="/workspace" element={<Private><Workspace /></Private>} />
         <Route path="/merchant" element={<Private><Merchant /></Private>} />
         <Route path="/issuer" element={<Private><Issuer /></Private>} />

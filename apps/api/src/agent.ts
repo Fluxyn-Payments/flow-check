@@ -4,6 +4,7 @@ import type { FlowCheck } from '@fluxyn/flow-check';
 import type { State } from './app.js';
 import { contextPrompt, getKnowledge } from './knowledge.js';
 import { payoutViaRipple, type FiatBeneficiary } from './ripple.js';
+import { getAgentConfig } from './business.js';
 
 const MODEL = process.env.AGENT_MODEL ?? 'us.anthropic.claude-sonnet-5-5';
 const MAX_TURNS = 12;
@@ -47,6 +48,7 @@ const tool = (name: string, description: string, properties: Record<string, unkn
 
 export const TOOLS: Tool[] = [
   tool('list_bills', "List this month's bills to pay."),
+  tool('budget', 'Your Mandate limits and what you already spent today, this month and this quarter, read from the ledger.'),
   tool('verify_agent', 'Know Your Agent: check on the ledger that you are attested, delegated and bound by a Mandate.'),
   tool('verify_pass', 'Check whether an account holds a Fluxyn Pass from an issuer on the network.', { account: { type: 'string' } }, ['account']),
   tool('check_mandate', 'Check a payment against your Mandate without paying. Returns ALLOW, NEEDS_APPROVAL or DENY with every check.', {
@@ -71,6 +73,14 @@ export function agentExec(fc: FlowCheck, s: State, key: AgentKey) {
   return async (name: string, input: any): Promise<unknown> => {
     switch (name) {
       case 'list_bills': return bills(s, key);
+      case 'budget': {
+        const kya = await fc.verifyAgent(agent.address);
+        const signed = kya.mandateHash ? s.mandates[kya.mandateHash] : null;
+        if (!signed) return { error: 'no Mandate found' };
+        const spent = await fc.spent(signed.mandate.principal, agent.address);
+        const l = signed.mandate.limits;
+        return { currency: l.currency, perPayment: l.perPayment, spent, left: { today: l.daily - spent.today, month: l.monthly - spent.month, ...(l.quarterly ? { quarter: l.quarterly - (spent.quarter ?? 0) } : {}) }, categories: signed.mandate.categories ?? 'any' };
+      }
       case 'verify_agent': { const r = await fc.verifyAgent(agent.address); return { authorized: r.authorized, principal: r.principal, checks: r.checks.map((c) => `${c.ok ? 'ok' : 'FAIL'} ${c.label}`) }; }
       case 'verify_pass': return fc.verifyPass(String(input.account));
       case 'check_mandate': {
@@ -79,6 +89,10 @@ export function agentExec(fc: FlowCheck, s: State, key: AgentKey) {
       }
       case 'pay_with_pass': {
         const bill = bills(s, key).find((x) => x.destination === input.destination && x.amount === Number(input.amount)) as { id: string; rail?: string } | undefined;
+        // The CFO chooses which rails each agent may use
+        const rails = (await getAgentConfig(key)).rails;
+        const rail = bill?.rail === 'ripple' ? 'ripple' : 'xrpl';
+        if (!rails[rail]) return { bill: bill?.id ?? input.bill_id, decision: 'DENY', status: 'REFUSED', failed: [`Rail: ${rail === 'ripple' ? 'Ripple Payments Direct' : 'XRP Ledger'} is turned off for this agent by the CFO`] };
         if (bill?.rail === 'ripple') {
           // Same Flow Check first; only then the cross-border payout
           const check = await fc.checkMandate(agent.address, { destination: input.destination, amount: Number(input.amount), currency: 'USD', category: input.category });

@@ -1,14 +1,20 @@
 import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { Check as CheckIcon, X, AlertTriangle, ExternalLink } from 'lucide-react';
 import type { Check } from '../api';
 import { explorerAccount } from '../api';
 
-export function Card({ title, action, children, className = '' }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
+export function Card({ title, icon: Icon, action, children, className = '' }: { title?: ReactNode; icon?: LucideIcon; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={`rounded-2xl border border-line bg-surface p-5 shadow-lift ${className}`}>
       {(title || action) && (
         <div className="mb-4 flex items-center justify-between gap-3">
-          {title && <h2 className="font-body text-xs font-bold uppercase tracking-[0.14em] text-muted">{title}</h2>}
+          {title && (
+            <h2 className="flex items-center gap-2.5 text-[17px] font-bold">
+              {Icon && <span className="grid h-8 w-8 place-items-center rounded-lg bg-mint text-tealink"><Icon className="h-4 w-4" /></span>}
+              {title}
+            </h2>
+          )}
           {action}
         </div>
       )}

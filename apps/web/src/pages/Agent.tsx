@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import { Receipt as ReceiptIcon, ShieldCheck as ShieldCheckIcon } from 'lucide-react';
 import { ArrowLeft } from 'lucide-react';
 import { useApi, type AgentResult } from '../api';
 import { Activity } from '../components/Activity';
@@ -21,7 +22,7 @@ export function Agent() {
 
       {error && <Card><span className="text-danger">{error}</span></Card>}
       <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-        <Card title="Flow Check">
+        <Card title="Flow Check" icon={ShieldCheckIcon}>
           {!data && <Loading />}
           {data && (
             <>
@@ -33,7 +34,7 @@ export function Agent() {
             </>
           )}
         </Card>
-        {data?.principal ? <Activity account={data.principal} title="Payments of this business" /> : <Card title="Payments"><div className="text-sm text-muted">No business linked to this agent.</div></Card>}
+        {data?.principal ? <Activity account={data.principal} title="Payments of this business" /> : <Card title="Payments" icon={ReceiptIcon}><div className="text-sm text-muted">No business linked to this agent.</div></Card>}
       </div>
     </div>
   );

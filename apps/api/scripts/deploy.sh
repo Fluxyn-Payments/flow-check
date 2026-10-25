@@ -37,7 +37,7 @@ aws iam put-role-policy --role-name "$ROLE" --policy-name invoke-claude --policy
 DATA_BUCKET=flowcheck-data-$(aws sts get-caller-identity --query Account --output text)
 aws s3api head-bucket --bucket "$DATA_BUCKET" 2>/dev/null || aws_ s3api create-bucket --bucket "$DATA_BUCKET" >/dev/null
 aws s3api put-public-access-block --bucket "$DATA_BUCKET" --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
-aws iam put-role-policy --role-name "$ROLE" --policy-name agent-knowledge --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\"],\"Resource\":[\"arn:aws:s3:::$DATA_BUCKET/knowledge/*\",\"arn:aws:s3:::$DATA_BUCKET/agent-keys/*\"]}]}"
+aws iam put-role-policy --role-name "$ROLE" --policy-name agent-knowledge --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\"],\"Resource\":[\"arn:aws:s3:::$DATA_BUCKET/*\"]}]}"
 aws iam put-role-policy --role-name "$ROLE" --policy-name read-state --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"secretsmanager:GetSecretValue\",\"Resource\":\"$SECRET_ARN\"}]}"
 ROLE_ARN=$(aws iam get-role --role-name "$ROLE" --query Role.Arn --output text)
 

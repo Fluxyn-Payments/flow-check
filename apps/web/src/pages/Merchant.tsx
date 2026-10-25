@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link2 as Link2Icon, ShieldAlert as ShieldAlertIcon, Wallet as WalletIcon } from 'lucide-react';
 import { ExternalLink, ShieldAlert } from 'lucide-react';
 import { api, useApi } from '../api';
 import { Card, Loading, Pill } from '../components/ui';
@@ -69,7 +70,7 @@ export function Merchant() {
       {!data && !error && <Loading what="Reading AP4M" />}
       {data?.enabled && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card title="On-chain proof (latest payment)">
+          <Card title="On-chain proof (latest payment)" icon={Link2Icon}>
             <ul className="divide-y divide-line">
               <Proof label="VoucherRedeemed" href={data.proof?.voucherRedeemed} />
               <Proof label="ClaimPaid" href={data.proof?.claimPaid} />
@@ -77,7 +78,7 @@ export function Merchant() {
             </ul>
             <div className="mt-3 text-xs text-muted">Payout wallet <span className="font-mono">{short(data.team?.payout)}</span> receives the RLUSD.</div>
           </Card>
-          <Card title="Budget and channel">
+          <Card title="Budget and channel" icon={WalletIcon}>
             <div className="grid grid-cols-2 gap-4">
               <div><div className="text-xs font-bold uppercase tracking-wider text-muted">Team budget</div><div className="num mt-1 font-display text-2xl font-bold">{Number(data.budget?.cap ?? 0)} RLUSD</div></div>
               <div><div className="text-xs font-bold uppercase tracking-wider text-muted">Channel cap</div><div className="num mt-1 font-display text-2xl font-bold">{data.channel ? `${Number(data.channel.cap)} RLUSD` : '—'}</div></div>
@@ -86,7 +87,7 @@ export function Merchant() {
             </div>
             <div className="mt-4 text-xs text-muted">Agent wallet <span className="font-mono">{short(data.team?.agent)}</span> · channel <span className="font-mono">{short(data.channel?.id)}</span></div>
           </Card>
-          <Card title="Try to spend above the cap" className="lg:col-span-2">
+          <Card title="Try to spend above the cap" icon={ShieldAlertIcon} className="lg:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-start gap-3 text-sm">
                 <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-danger" />

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUp, Check, CircleSlash, Clock, ExternalLink, Loader2, ShieldAlert, Sparkles, XCircle } from 'lucide-react';
+import { ArrowUp, BarChart3, Building2, Check, ChevronRight, CircleSlash, Clock, Copy, ExternalLink, FileText, Loader2, ShieldAlert, Sparkles, XCircle, type LucideIcon } from 'lucide-react';
 import { api, useApi, type AgentResult } from '../api';
 import { Pill } from '../components/ui';
 import { getSession } from '../session';
@@ -14,7 +14,22 @@ type MandateView = { mandate: null | { limits: { perPayment: number; daily: numb
 type Ap4m = { enabled: boolean; channel?: { id: string; cap: string; status: string; lastVoucher: string | null } | null; budget?: { cap: string } };
 type Msg = { id: number; from: 'user' | 'agent'; node: ReactNode };
 
-const SUGGESTIONS = ["Pay this month's bills", 'What can you pay on your own?', 'Does Stratus Cloud LLC have a Pass?', 'What is waiting for my approval?'];
+const SUGGESTIONS: { text: string; icon: LucideIcon }[] = [
+  { text: "Pay this month's bills", icon: FileText },
+  { text: 'What can you pay on your own?', icon: Sparkles },
+  { text: 'Does Stratus Cloud LLC have a Pass?', icon: Building2 },
+  { text: 'What is waiting for my approval?', icon: Clock },
+];
+
+// Side card header: icon, title and an optional link or count
+function Head({ icon: Icon, title, right }: { icon: LucideIcon; title: string; right?: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="flex items-center gap-2.5 text-lg font-bold"><Icon className="h-5 w-5 text-tealink" />{title}</h2>
+      {right}
+    </div>
+  );
+}
 const usd = (n: number) => `USD ${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 19 ? 'Good afternoon' : 'Good evening'; };
 const rlusd = (wei?: string | null) => (wei ? Number(BigInt(wei.split('.')[0]) / 10n ** 12n) / 1e6 : 0);
@@ -170,28 +185,32 @@ export function Workspace() {
   const used = rlusd(ap4m?.channel?.lastVoucher);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
       <section className="flex min-h-[600px] flex-col rounded-2xl border border-line bg-surface shadow-lift lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)]" aria-label={agentName}>
-        <header className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-4">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-mint text-tealink"><Sparkles className="h-[18px] w-[18px]" /></span>
+        <header className="flex flex-wrap items-center gap-3 border-b border-line px-6 py-4">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-mint text-tealink"><Sparkles className="h-5 w-5" /></span>
           <div className="min-w-0 flex-1">
-            <p className="font-semibold leading-tight">{agentName}</p>
+            <p className="text-[17px] font-semibold leading-tight">{agentName}</p>
             <p className="truncate text-xs text-muted">{m ? `Pays alone up to ${usd(m.limits.perPayment)}${m.categories ? ` · only ${m.categories.join(', ')}` : ''} · only counterparties with a Pass` : 'Your agent, checked by Flow Check'}</p>
           </div>
-          {kya && <Pill tone={kya.authorized ? 'ok' : 'no'}>{kya.authorized ? 'KYA · AUTHORIZED' : 'NOT AUTHORIZED'}</Pill>}
-          {net?.canApprove && <Link to="/agents" className="rounded-full border border-line px-3 py-1 text-xs font-semibold hover:bg-sunken">Mandate and limits</Link>}
+          {kya && <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold tracking-wide ${kya.authorized ? 'bg-leaf/15 text-leaf' : 'bg-dangersoft text-danger'}`}><i className={`h-2 w-2 rounded-full ${kya.authorized ? 'bg-leaf' : 'bg-danger'}`} />{kya.authorized ? 'KYA · AUTHORIZED' : 'NOT AUTHORIZED'}</span>}
+          {net?.canApprove && <Link to="/agents" className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold hover:bg-sunken"><FileText className="h-3.5 w-3.5" />Mandate and limits</Link>}
         </header>
 
-        <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto px-5 py-5" aria-live="polite">
-          <div className="rise max-w-[85%]">
-            <h2 className="text-[28px] font-extrabold leading-tight">{greeting()}, {first}.</h2>
-            <p className="mt-1 text-lg text-muted">What should we pay today?</p>
-            {bills && <p className="mt-2 text-sm">{bills.length} bills are due this month. I check every one with Flow Check before any money moves.</p>}
+        <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto px-6 py-7" aria-live="polite">
+          <div className="rise">
+            <h2 className="text-[38px] font-extrabold leading-tight tracking-tight">{greeting()}, {first}.</h2>
+            <p className="text-[30px] leading-tight text-muted">What should we pay today?</p>
+            {bills && <p className="mt-3 text-base text-muted">{bills.length} bills are due this month. I check every one with Flow Check before any money moves.</p>}
           </div>
           {msgs.length === 0 && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {SUGGESTIONS.map((s) => (
-                <button key={s} type="button" onClick={() => say(s)} className="rounded-full border border-line bg-paper px-4 py-2 text-sm font-semibold hover:border-teal hover:bg-mint hover:text-tealink">{s}</button>
+            <div className="grid gap-3 pt-3 sm:grid-cols-2">
+              {SUGGESTIONS.map(({ text, icon: Icon }) => (
+                <button key={text} type="button" onClick={() => say(text)} className="group flex items-center gap-3 rounded-2xl border border-line bg-paper px-4 py-3.5 text-left text-[15px] font-semibold transition hover:border-teal hover:bg-mint/60">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface text-tealink shadow-sm"><Icon className="h-[18px] w-[18px]" /></span>
+                  <span className="flex-1">{text}</span>
+                  <ChevronRight className="h-4 w-4 text-muted transition group-hover:translate-x-0.5 group-hover:text-tealink" />
+                </button>
               ))}
             </div>
           )}
@@ -215,12 +234,12 @@ export function Workspace() {
           )}
         </div>
 
-        <form onSubmit={submit} className="border-t border-line p-3">
-          <div className="flex items-center gap-2 rounded-full border border-line bg-paper pl-4 pr-1.5 focus-within:border-teal">
+        <form onSubmit={submit} className="p-4">
+          <div className="flex items-center gap-2 rounded-2xl border border-line bg-paper pl-5 pr-2 shadow-sm focus-within:border-teal focus-within:ring-2 focus-within:ring-teal/25">
             <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask your agent or tell it what to pay…"
-              className="h-12 min-w-0 flex-1 bg-transparent text-[15px] placeholder:text-muted/70 focus:outline-none" aria-label="Message to the agent" />
-            <button type="submit" disabled={!input.trim() || typing} className="grid h-9 w-9 place-items-center rounded-full bg-teal text-onteal disabled:opacity-40" aria-label="Send">
-              <ArrowUp className="h-4 w-4" />
+              className="h-14 min-w-0 flex-1 bg-transparent text-base placeholder:text-muted/70 focus:outline-none" aria-label="Message to the agent" />
+            <button type="submit" disabled={!input.trim() || typing} className="grid h-10 w-10 place-items-center rounded-full bg-teal text-onteal disabled:opacity-40" aria-label="Send">
+              <ArrowUp className="h-5 w-5" />
             </button>
           </div>
         </form>
@@ -228,10 +247,7 @@ export function Workspace() {
 
       <aside className="grid content-start gap-6">
         <section className="rounded-2xl border border-line bg-surface p-5">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-lg font-bold">{isMarketing ? 'Budget' : 'This month'}</h2>
-            {net?.canApprove && <Link to="/agents" className="text-xs font-semibold text-tealink">Limits</Link>}
-          </div>
+          <Head icon={BarChart3} title={isMarketing ? 'Budget' : 'This month'} right={net?.canApprove && <Link to="/agents" className="inline-flex items-center gap-0.5 text-sm font-semibold text-tealink">Limits <ChevronRight className="h-4 w-4" /></Link>} />
           {m && md?.spent ? (
             <div className="mt-4 grid gap-4">
               {[{ label: 'Paid today', used: md.spent.today, limit: m.limits.daily }, { label: 'Paid this month', used: md.spent.month, limit: m.limits.monthly }, ...(m.limits.quarterly ? [{ label: 'Quarter budget', used: md.spent.quarter ?? 0, limit: m.limits.quarterly }] : [])].map((r) => (
@@ -251,27 +267,30 @@ export function Workspace() {
             <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-[rgb(120_230_210)]">Agent spend channel</span>
             <MastercardMark />
           </div>
-          <p className="num relative mt-7 font-display text-3xl font-bold">{cap ? `${(cap - used).toLocaleString('en-US')} RLUSD` : '—'}</p>
-          <p className="relative text-xs text-[rgb(150_190_184)]">left of a {cap || '—'} RLUSD prefunded cap · Agent Pay for Machines</p>
-          <div className="relative mt-4 flex items-end justify-between text-xs">
-            <span className="font-semibold tracking-[0.12em]">LUMEN ROBOTICS · PAYABLES AGENT</span>
-            <span className="font-mono">{kya?.evm ? `${kya.evm.slice(0, 6)}…${kya.evm.slice(-4)}` : ''}</span>
+          <p className="num relative mt-5 font-display text-[34px] font-bold leading-none">{cap ? `${(cap - used).toLocaleString('en-US')} RLUSD` : '—'}</p>
+          <p className="relative mt-2 text-xs text-[rgb(150_190_184)]">left of a {cap || '—'} RLUSD prefunded cap · Agent Pay for Machines</p>
+          <div className="relative mt-4 flex items-end justify-between gap-3 border-t border-white/10 pt-3 text-xs">
+            <span>
+              <span className="block font-semibold tracking-[0.12em]">LUMEN ROBOTICS · PAYABLES AGENT</span>
+              <span className="mt-0.5 block font-mono text-[rgb(150_190_184)]">{kya?.evm ? `${kya.evm.slice(0, 6)}…${kya.evm.slice(-4)}` : ''}</span>
+            </span>
+            {kya?.evm && <button onClick={() => navigator.clipboard.writeText(kya.evm!)} className="grid h-8 w-8 place-items-center rounded-lg text-[rgb(150_190_184)] hover:bg-white/10 hover:text-white" aria-label="Copy the agent's EVM address"><Copy className="h-4 w-4" /></button>}
           </div>
         </section>}
 
         <section className="rounded-2xl border border-line bg-surface p-5">
-          <h2 className="text-lg font-bold">Bills due</h2>
+          <Head icon={FileText} title="Bills due" right={<span className="text-sm font-semibold text-muted">{bills?.length ?? ''}</span>} />
           <ul className="mt-2 divide-y divide-line">
             {bills?.map((b) => {
               const o = outcomes[b.id];
               const s = o ? STATUS[o.status ?? ''] : null;
               return (
-                <li key={b.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                <li key={b.id} className="flex items-center justify-between gap-3 py-3 text-[15px]">
                   <span className="min-w-0">
                     <span className="block truncate font-semibold">{b.vendor}</span>
                     <span className="text-xs text-muted">{b.id} · {s ? s.label : 'To pay'}</span>
                   </span>
-                  <span className="num font-mono text-[13px]">{b.amount.toLocaleString('en-US')}</span>
+                  <span className="num font-semibold">{b.amount.toLocaleString('en-US')}</span>
                 </li>
               );
             })}
@@ -279,7 +298,7 @@ export function Workspace() {
         </section>
 
         <section className={`rounded-2xl border p-5 ${pending ? 'border-sun/40 bg-sunsoft' : 'border-line bg-surface'}`}>
-          <h2 className="text-lg font-bold">Approvals</h2>
+          <Head icon={Clock} title="Approvals" right={<span className={`grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-xs font-bold ${pending ? 'bg-sun text-white' : 'bg-sunken text-muted'}`}>{Object.values(outcomes).filter((o) => o.status === 'PENDING_APPROVAL').length}</span>} />
           {pending ? (
             <>
               <p className="mt-2 text-sm"><span className="font-semibold">{pendingBill?.vendor} · {pendingBill?.amount.toLocaleString('en-US')} RLUSD.</span> {outcomes[pendingId!]?.failed?.[0] ?? 'Over the limit.'}</p>
@@ -296,7 +315,7 @@ export function Workspace() {
         </section>
 
         <section className="rounded-2xl border border-line bg-surface p-5">
-          <h2 className="flex items-center gap-2 text-lg font-bold"><ShieldAlert className="h-5 w-5 text-danger" />Try to bypass</h2>
+          <Head icon={ShieldAlert} title="Try to bypass" />
           <p className="mt-2 text-sm text-muted">An unverified agent tries to pay directly. The ledger refuses.</p>
           {bypass ? (
             <p className="mt-3 text-sm"><Pill tone="no">{bypass.engineResult ?? 'refused'}</Pill> {bypass.explorer && <a href={bypass.explorer} target="_blank" rel="noopener" className="font-semibold text-tealink hover:underline">view ↗</a>}</p>

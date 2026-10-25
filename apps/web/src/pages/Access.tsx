@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { Code2 as Code2Icon, CreditCard as CreditCardIcon, FolderGit2 as FolderGit2Icon, KeyRound as KeyRoundIcon, Link2 as Link2Icon } from 'lucide-react';
 import { Copy, ExternalLink } from 'lucide-react';
 import { useApi } from '../api';
 import { Card, Pill } from '../components/ui';
@@ -69,7 +70,7 @@ export function Access() {
         <p className="mt-2 max-w-2xl text-muted">Every view, account and API. Internal.</p>
       </div>
 
-      <Card title="Apps and demo accounts" action={acc && <span className="flex items-center gap-2 text-xs text-muted">Shared password <span className="font-mono text-ink">{acc.password}</span><CopyButton value={acc.password} /></span>}>
+      <Card title="Apps and demo accounts" icon={KeyRoundIcon} action={acc && <span className="flex items-center gap-2 text-xs text-muted">Shared password <span className="font-mono text-ink">{acc.password}</span><CopyButton value={acc.password} /></span>}>
         <ul className="divide-y divide-line">
           {(acc?.accounts ?? []).map((a) => (
             <li key={a.email} className="grid gap-1 py-3 sm:grid-cols-[180px_1fr_auto] sm:items-center sm:gap-4">
@@ -83,7 +84,7 @@ export function Access() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Developers">
+        <Card title="Developers" icon={Code2Icon}>
           <ul className="divide-y divide-line">
             <Row label="API docs (Swagger)"><Ext href="/api/docs">/api/docs</Ext></Row>
             <Row label="OpenAPI 3.1"><Ext href="/api/openapi.json">/api/openapi.json</Ext></Row>
@@ -98,7 +99,7 @@ export function Access() {
         </Card>
 
         <div className="space-y-6">
-          <Card title="Mastercard AP4M">
+          <Card title="Mastercard AP4M" icon={CreditCardIcon}>
             <ul className="divide-y divide-line">
               <Row label="Our x402 Merchant"><Ext href="https://d1p8wvj2ujopmx.cloudfront.net/resource">d1p8wvj2ujopmx.cloudfront.net/resource</Ext></Row>
               <Row label="Team portal"><Ext href="https://hackathon.ap4m.build/participant">hackathon.ap4m.build/participant</Ext></Row>
@@ -108,7 +109,7 @@ export function Access() {
             </ul>
           </Card>
 
-          <Card title="On the ledger (XRPL testnet)">
+          <Card title="On the ledger (XRPL testnet)" icon={Link2Icon}>
             <ul className="divide-y divide-line">
               {net && [
                 ['Issuer · Demo VASP', net.issuers.vasp], ['Issuer · Demo PSP', net.issuers.psp], ['Business', net.business],
@@ -117,7 +118,7 @@ export function Access() {
             </ul>
           </Card>
 
-          <Card title="Code and prior work">
+          <Card title="Code and prior work" icon={FolderGit2Icon}>
             <ul className="divide-y divide-line">
               <Row label="Public repo"><Ext href="https://github.com/Fluxyn-Payments/flow-check">Fluxyn-Payments/flow-check</Ext></Row>
               <Row label="Internal repo (private)"><Ext href="https://github.com/Fluxyn-Payments/flow-check-internal">Fluxyn-Payments/flow-check-internal</Ext></Row>

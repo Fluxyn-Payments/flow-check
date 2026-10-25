@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react';
+import { Activity as ActivityIcon } from 'lucide-react';
 import { useApi, type LedgerEvent } from '../api';
 import { Card, Loading, Pill } from './ui';
 
@@ -6,7 +7,7 @@ import { Card, Loading, Pill } from './ui';
 export function Activity({ account, title = 'Live on the ledger' }: { account?: string; title?: string }) {
   const { data } = useApi<LedgerEvent[]>(account ? `/api/activity/${account}` : '/api/events', 5000);
   return (
-    <Card title={title} action={<span className="inline-flex items-center gap-1.5 text-xs text-muted"><span className="h-2 w-2 animate-pulse rounded-full bg-leaf" />live</span>}>
+    <Card title={title} icon={ActivityIcon} action={<span className="inline-flex items-center gap-1.5 text-xs text-muted"><span className="h-2 w-2 animate-pulse rounded-full bg-leaf" />live</span>}>
       {!data && <Loading />}
       {data && data.length === 0 && <div className="text-sm text-muted">No transactions yet.</div>}
       <ul className="divide-y divide-line">

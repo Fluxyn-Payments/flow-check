@@ -2,7 +2,8 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { FlowCheck } from '@fluxyn/flow-check';
 import type { State } from './app.js';
-import { TOOLS, agentExec, agentOf, type AgentKey } from './agent.js';
+import { TOOLS, agentExec, type AgentKey } from './agent.js';
+import { getAgentConfig } from './business.js';
 
 // Each agent of the business gets its own MCP server at /mcp/<agent key>. The key is issued by the CFO and
 // can be revoked; the agent's seed stays on the server, and every payment still goes through Flow Check.
@@ -49,6 +50,7 @@ export async function handleMcp(fc: FlowCheck, s: State, token: string, secret: 
   if (!agent) return { status: 401, body: { jsonrpc: '2.0', id: body?.id ?? null, error: { code: -32001, message: 'This agent key was revoked or is not valid. Ask the CFO for a new one.' } } };
   if (Array.isArray(body)) return { status: 400, body: { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'batches are not supported' } } };
   const { id, method, params } = body ?? {};
+  if (!(await getAgentConfig(agent)).channels.mcp) return { status: 403, body: { jsonrpc: '2.0', id: id ?? null, error: { code: -32003, message: 'The CFO turned off MCP for this agent.' } } };
   if (id === undefined) return { status: 202, body: null }; // notifications
   const ok = (result: unknown) => ({ status: 200, body: { jsonrpc: '2.0', id, result } });
 

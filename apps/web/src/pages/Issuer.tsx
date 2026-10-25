@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BadgeCheck as BadgeCheckIcon, Bot as BotIcon } from 'lucide-react';
 import { Bot, Building2, ShieldCheck, ShieldOff } from 'lucide-react';
 import { api, useApi, type AgentResult } from '../api';
 import { Addr, Card, Checks, Loading, Pill } from '../components/ui';
@@ -43,7 +44,7 @@ export function Issuer() {
       {!data && <Loading />}
       {data && (
         <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-          <Card title="Demo agent" action={kya && <Pill tone={kya.authorized ? 'ok' : 'no'}>{kya.authorized ? 'KYA · AUTHORIZED' : 'NOT AUTHORIZED'}</Pill>}>
+          <Card title="Demo agent" icon={BotIcon} action={kya && <Pill tone={kya.authorized ? 'ok' : 'no'}>{kya.authorized ? 'KYA · AUTHORIZED' : 'NOT AUTHORIZED'}</Pill>}>
             <div className="flex items-start gap-3">
               <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-mint text-tealink"><Bot className="h-5 w-5" /></div>
               <div className="text-sm">
@@ -77,7 +78,7 @@ export function Issuer() {
           </Card>
 
           <div className="space-y-6">
-            <Card title="Businesses verified" action={<span className="text-xs text-muted">{businesses.length}</span>}>
+            <Card title="Businesses verified" icon={BadgeCheckIcon} action={<span className="text-xs text-muted">{businesses.length}</span>}>
               <ul className="divide-y divide-line">
                 {businesses.map((b) => (
                   <li key={b.subject} className="flex items-center justify-between gap-3 py-3">
@@ -87,7 +88,7 @@ export function Issuer() {
                 ))}
               </ul>
             </Card>
-            <Card title="Agents attested" action={<span className="text-xs text-muted">{agents.length}</span>}>
+            <Card title="Agents attested" icon={BotIcon} action={<span className="text-xs text-muted">{agents.length}</span>}>
               {agents.length === 0 && <div className="text-sm text-muted">No agent attested right now.</div>}
               <ul className="divide-y divide-line">
                 {agents.map((a) => (

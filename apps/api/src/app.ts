@@ -13,6 +13,7 @@ import { getKnowledge, putKnowledge } from './knowledge.js';
 import { approveBatch } from './batch.js';
 import { prepareLedgerApproval, submitLedgerApproval } from './ledger.js';
 import { agentFromKey, agentKeyStatus, handleMcp, issueAgentKey } from './mcp.js';
+import { getAgentConfig, invite, loadOverlay, putAgentConfig, removeInvite, setDelegation, team, updateMandate } from './business.js';
 import { DOCS_HTML, openapi, postmanCollection } from './openapi.js';
 
 // Network state as written by `pnpm setup:testnet`, plus the published Mandates
@@ -101,6 +102,7 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
   if (req.path.startsWith('/mcp/') && req.method !== 'POST') return json(405, { error: 'POST JSON-RPC to this URL (MCP Streamable HTTP)' });
   if (req.method === 'GET' && !req.path.startsWith('/api/')) return webFile(req.path);
 
+  await loadOverlay(state);
   const issuers = networkIssuers(state);
   const fc = new FlowCheck({
     network: 'testnet',
@@ -128,6 +130,7 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
       const cors = (r: Res): Res => ({ ...r, headers: { ...r.headers, 'access-control-allow-origin': '*' } });
       const agent = key ? await agentFromKey(parts[2], key) : null;
       if (!agent) return cors(json(401, { error: 'This agent key was revoked or is not valid.' }));
+      if (!(await getAgentConfig(agent)).channels.widget) return cors(json(403, { error: 'The CFO turned off the widget for this agent.' }));
       const a = agentOf(state, agent);
       if (req.method === 'GET' && parts[3] === 'summary') {
         const kya = await fc.verifyAgent(a.address);
@@ -138,6 +141,29 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
         if (!allowAgentRun()) return cors(json(429, { error: 'The agent is busy, try again in a few minutes.' }));
         return cors(json(200, await runAgent(fc, state, String(req.body?.message ?? '').slice(0, 2000) || "Pay this month's bills.", agent)));
       }
+    }
+    // REST access with the agent key (for an ERP or back office)
+    if (req.method === 'POST' && req.path === '/api/v1/agent/run') {
+      const agent = key ? await agentFromKey(String(req.headers['authorization'] ?? '').replace(/^Bearer\s+/i, ''), key) : null;
+      if (!agent) return json(401, { error: 'Send the agent key as a Bearer token.' });
+      if (!(await getAgentConfig(agent)).channels.api) return json(403, { error: 'The CFO turned off API access for this agent.' });
+      if (!allowAgentRun()) return json(429, { error: 'The agent is busy, try again in a few minutes.' });
+      return json(200, await runAgent(fc, state, String(req.body?.message ?? '').slice(0, 2000) || "Pay this month's bills.", agent));
+    }
+    // The CFO administers each agent: Mandate, delegation, rails and channels
+    if (parts[0] === 'api' && parts[1] === 'agents' && (parts[2] === 'payables' || parts[2] === 'marketing') && ['mandate', 'delegation', 'config'].includes(parts[3])) {
+      const k = parts[2] as AgentKey;
+      if (req.method === 'GET' && parts[3] === 'config') return json(200, await getAgentConfig(k));
+      if (!can('business')) return json(401, { error: 'only the CFO administers agents' });
+      if (req.method === 'PUT' && parts[3] === 'mandate') return json(200, await updateMandate(fc, state, k, req.body ?? {}));
+      if (req.method === 'POST' && parts[3] === 'delegation') return json(200, await setDelegation(fc, state, k, req.body?.enabled !== false));
+      if (req.method === 'PUT' && parts[3] === 'config') return json(200, await putAgentConfig(k, req.body ?? {}));
+    }
+    if (parts[0] === 'api' && parts[1] === 'business' && parts[2] === 'team') {
+      if (!can('business')) return json(401, { error: 'only the CFO manages the team' });
+      if (req.method === 'GET') return json(200, await team());
+      if (req.method === 'POST') { try { return json(200, await invite(req.body ?? {})); } catch (e) { return json(400, { error: (e as Error).message }); } }
+      if (req.method === 'DELETE' && parts[3]) { await removeInvite(decodeURIComponent(parts[3])); return json(200, { ok: true }); }
     }
     if (parts[0] === 'api' && parts[1] === 'agents' && parts[3] === 'mcp-key') {
       const k: AgentKey = parts[2] === 'marketing' ? 'marketing' : 'payables';
@@ -216,7 +242,7 @@ export async function handle(req: Req, state: State, demoToken: string | undefin
         const a = agentOf(state, k);
         const kya = await fc.verifyAgent(a.address);
         const signed = kya.mandateHash ? state.mandates[kya.mandateHash] : null;
-        return { key: k, address: a.address, authorized: kya.authorized, evm: kya.evm, mandate: signed?.mandate ?? null, spent: signed ? await fc.spent(signed.mandate.principal, a.address) : null };
+        return { key: k, address: a.address, authorized: kya.authorized, delegated: kya.checks.find((c) => c.id === 'delegation')?.ok ?? false, evm: kya.evm, mandate: signed?.mandate ?? null, spent: signed ? await fc.spent(signed.mandate.principal, a.address) : null, config: await getAgentConfig(k) };
       })));
     }
     if (req.method === 'GET' && parts[1] === 'mandates' && parts[2] === 'hash' && parts[3]) {

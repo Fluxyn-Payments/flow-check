@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Bot as BotIcon, Building2 as Building2Icon, Landmark as LandmarkIcon } from 'lucide-react';
 import { ChevronRight } from 'lucide-react';
 import { useApi, type Directory, type AgentEntry } from '../api';
 import { Addr, Card, Loading, Pill, Stat, short } from '../components/ui';
@@ -33,7 +34,7 @@ export function Network() {
             <Stat label="With KYA" value={data.counts.attested} hint="attested by their issuer" />
           </div>
 
-          <Card title="Agents">
+          <Card title="Agents" icon={BotIcon}>
             <div className="-mx-5 overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="text-left text-xs uppercase tracking-wider text-muted">
@@ -87,7 +88,7 @@ export function Network() {
           </Card>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card title="Issuers">
+            <Card title="Issuers" icon={LandmarkIcon}>
               <ul className="divide-y divide-line">
                 {data.issuers.map((i) => (
                   <li key={i.address} className="flex items-center justify-between gap-3 py-3">
@@ -103,7 +104,7 @@ export function Network() {
                 ))}
               </ul>
             </Card>
-            <Card title="Businesses with a Pass">
+            <Card title="Businesses with a Pass" icon={Building2Icon}>
               <ul className="divide-y divide-line">
                 {data.businesses.map((b) => (
                   <li key={b.address} className="flex items-center justify-between gap-3 py-3">
