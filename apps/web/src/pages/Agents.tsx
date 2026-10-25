@@ -3,6 +3,7 @@ import { ArrowRight, BarChart3, Bot, ChevronRight, Clock, Code2, Globe, Megaphon
 import { useApi } from '../api';
 import { Loading } from '../components/ui';
 import { MastercardMark } from './Workspace';
+import { RippleMark } from '../components/RippleMark';
 
 type Limits = { currency: string; perPayment: number; daily: number; monthly: number; quarterly?: number };
 export type AgentConfig = { rails: { xrpl: boolean; ap4m: boolean; ripple: boolean }; channels: { mcp: boolean; widget: boolean; api: boolean } };
@@ -121,9 +122,9 @@ export function Agents() {
         <section className="rounded-2xl border border-line bg-surface p-6 shadow-lift">
           <h2 className="flex items-baseline gap-3 text-lg font-bold"><Route className="h-5 w-5 self-center text-tealink" />Payment rails <span className="text-sm font-normal text-muted">Agents pay on these rails</span></h2>
           <div className="mt-4 grid gap-3">
-            <Tile icon={<Globe className="h-5 w-5" />} name="XRPL · RLUSD" detail="Suppliers with a Pass" />
+            <Tile icon={<RippleMark />} name="XRPL · RLUSD" detail="Suppliers with a Pass" />
             <Tile icon={<MastercardMark size={16} />} name="Mastercard Agent Pay" detail="Funded channel" />
-            <Tile icon={<Route className="h-5 w-5" />} name="Ripple Payments" detail="Cross-border payouts" status="Sandbox" />
+            <Tile icon={<RippleMark />} name="Ripple Payments Direct" detail="Cross-border payouts" status="Sandbox" />
           </div>
         </section>
         <section className="rounded-2xl border border-line bg-surface p-6 shadow-lift">

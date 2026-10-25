@@ -83,7 +83,7 @@ export function Workspace() {
   const { data: kya, reload: reloadKya } = useApi<AgentResult & { evm?: string | null }>(net ? `/api/agent/${net.agent}` : null);
   const { data: md, reload: reloadMd } = useApi<MandateView>(net ? `/api/mandate/${net.agent}` : null);
   const { data: bills } = useApi<Bill[]>('/api/bills');
-  const { data: ap4m } = useApi<Ap4m>('/api/ap4m', 30000);
+  const { data: ap4m, reload: reloadAp4m } = useApi<Ap4m>('/api/ap4m', 30000);
   const [outcomes, setOutcomes] = useState<Record<string, PayOutput>>({});
   const [checks, setChecks] = useState<Record<string, string>>({});
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -121,7 +121,7 @@ export function Workspace() {
           <p className="mt-2 font-mono text-[11px] text-muted">{r.model.replace('us.anthropic.', '')} · Amazon Bedrock</p>
         </>
       ));
-      reloadMd();
+      reloadMd(); reloadAp4m();
     } catch (e) {
       push('agent', <p className="text-danger">{(e as Error).message}</p>);
     } finally {

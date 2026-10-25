@@ -39,7 +39,7 @@
     .sub { margin-top: 2px; font-size: 12px; color: #9CC8C0; }
     .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; }
     .ok { background: #DDF6EA; color: #11744A; } .warn { background: #FFF1D6; color: #8A5A00; } .no { background: #FCE3E5; color: #A3202C; }
-    .x { border: 0; background: transparent; color: #9CC8C0; font-size: 20px; cursor: pointer; line-height: 1; }
+    .x { border: 0; background: transparent; color: #9CC8C0; font-size: 20px; cursor: pointer; line-height: 1; margin-left: 10px; }
     .meters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
     .m span { display: flex; justify-content: space-between; font-size: 11px; color: #9CC8C0; white-space: nowrap; } .m em { font-style: normal; }
     .bar { margin-top: 4px; height: 5px; border-radius: 9px; background: rgba(255,255,255,.12); overflow: hidden; }
@@ -58,20 +58,20 @@
     form { display: flex; gap: 8px; padding: 10px 14px 14px; background: #fff; }
     input { flex: 1; height: 40px; border: 1px solid #DCE7E4; border-radius: 999px; padding: 0 14px; font-size: 13.5px; outline: none; color: #0B1A1F; }
     input:focus { border-color: #14C9C0; box-shadow: 0 0 0 3px rgba(20,201,192,.2); }
-    .send { width: 40px; height: 40px; border: 0; border-radius: 50%; background: #14C9C0; color: #062828; font-size: 18px; font-weight: 700; cursor: pointer; }
+    .send { width: 44px; height: 44px; border: 0; border-radius: 50%; background: #062828; color: #fff; display: grid; place-items: center; cursor: pointer; }
     .send:disabled { opacity: .5; }
     footer { padding: 0 14px 10px; background: #fff; font-size: 10.5px; color: #8A9B9D; text-align: center; }
   </style>
   <button class="fab" part="button"><i></i>Your agent · Flow Check</button>
   <section class="panel" role="dialog" aria-label="Flow Check agent">
     <header>
-      <div class="row"><span class="brand">Fluxyn · Flow Check</span><button class="x" aria-label="Close">×</button></div>
+      <div class="row"><span class="brand">Fluxyn · Flow Check</span><span><button class="x min" aria-label="Minimize">–</button><button class="x" aria-label="Close">×</button></span></div>
       <div class="row"><div><div class="title">Loading…</div><div class="sub"></div></div><span class="kya"></span></div>
       <div class="meters"></div>
     </header>
     <div class="log"></div>
     <div class="chips"></div>
-    <form><input placeholder="Ask your agent…" maxlength="500" /><button class="send" aria-label="Send">↑</button></form>
+    <form><input placeholder="Ask me anything about payables…" maxlength="500" /><button class="send" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></button></form>
     <footer>Every payment is checked on the XRP Ledger · XRPL testnet</footer>
   </section>`;
 
@@ -79,7 +79,7 @@
   const panel = $('.panel'), log = $('.log'), input = $('input'), send = $('.send');
   const toggle = (open) => panel.classList.toggle('open', open ?? !panel.classList.contains('open'));
   $('.fab').onclick = () => toggle();
-  $('.x').onclick = () => toggle(false);
+  root.querySelectorAll('.x').forEach((b) => (b.onclick = () => toggle(false)));
 
   const add = (cls, html) => { const d = document.createElement('div'); d.className = `msg ${cls}`; d.innerHTML = html; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; };
   const meter = (label, used, limit) => `<div class="m"><span><em>${label}</em><em>${usd(used)} of ${usd(limit)}</em></span><div class="bar"><b style="width:${Math.min(100, (used / limit) * 100)}%"></b></div></div>`;

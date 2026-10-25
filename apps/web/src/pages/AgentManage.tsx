@@ -4,6 +4,8 @@ import { ArrowLeft, Code2, ExternalLink, FileSignature, GraduationCap, Loader2, 
 import { api, useApi } from '../api';
 import { Addr, Card, Loading } from '../components/ui';
 import { AgentMcp } from '../components/AgentMcp';
+import { RippleMark } from '../components/RippleMark';
+import { MastercardMark } from './Workspace';
 import { AGENT_META, KyaPill, type AgentConfig, type AgentRow } from './Agents';
 
 type Tx = { label: string; engineResult: string; explorer: string };
@@ -114,9 +116,9 @@ export function AgentManage() {
         <div className="grid content-start gap-6">
           <Card title="Payment rails" icon={Route}>
             <div className="divide-y divide-line">
-              <Row icon={<Route className="h-5 w-5" />} title="XRP Ledger · RLUSD" detail="Suppliers with a Pass"><Toggle on={!!cfg?.rails.xrpl} disabled={busy === 'config'} onChange={(v) => cfg && saveConfig({ ...cfg, rails: { ...cfg.rails, xrpl: v } })} /></Row>
-              {key === 'payables' && <Row icon={<Route className="h-5 w-5" />} title="Mastercard Agent Pay" detail="Prefunded channel on XRPL EVM"><Toggle on={!!cfg?.rails.ap4m} disabled={busy === 'config'} onChange={(v) => cfg && saveConfig({ ...cfg, rails: { ...cfg.rails, ap4m: v } })} /></Row>}
-              <Row icon={<Route className="h-5 w-5" />} title="Ripple Payments Direct" detail="Fiat payouts · sandbox"><Toggle on={!!cfg?.rails.ripple} disabled={busy === 'config'} onChange={(v) => cfg && saveConfig({ ...cfg, rails: { ...cfg.rails, ripple: v } })} /></Row>
+              <Row icon={<RippleMark />} title="XRP Ledger · RLUSD" detail="Suppliers with a Pass"><Toggle on={!!cfg?.rails.xrpl} disabled={busy === 'config'} onChange={(v) => cfg && saveConfig({ ...cfg, rails: { ...cfg.rails, xrpl: v } })} /></Row>
+              {key === 'payables' && <Row icon={<MastercardMark size={14} />} title="Mastercard Agent Pay" detail="Prefunded channel on XRPL EVM"><Toggle on={!!cfg?.rails.ap4m} disabled={busy === 'config'} onChange={(v) => cfg && saveConfig({ ...cfg, rails: { ...cfg.rails, ap4m: v } })} /></Row>}
+              <Row icon={<RippleMark />} title="Ripple Payments Direct" detail="Fiat payouts · sandbox"><Toggle on={!!cfg?.rails.ripple} disabled={busy === 'config'} onChange={(v) => cfg && saveConfig({ ...cfg, rails: { ...cfg.rails, ripple: v } })} /></Row>
             </div>
           </Card>
           <Card title="Channels" icon={Plug}>
